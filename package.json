@@ -1,0 +1,8 @@
+{
+  "name": "palomero-plus-admin",
+  "version": "1.0.0",
+  "description": "Super Admin Dashboard for Palomero Plus App",
+  "scripts": {
+    "start": "npx -y http-server -p 8080"
+  }
+}
