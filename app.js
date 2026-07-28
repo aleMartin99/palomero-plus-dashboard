@@ -1,8 +1,22 @@
 // Palomero Plus Super Admin Dashboard Controller
 
+const escapeHTML = (str) => {
+  if (typeof str !== 'string') return str;
+  return str.replace(/[&<>'"]/g, 
+    tag => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
+    }[tag])
+  );
+};
+
 let supabaseClient = null;
 let currentTab = 'overview';
 let activeContactFilter = 'all';
+let activeStatusFilter = 'all';
 let rawUsers = [];
 let rawPigeons = [];
 let rawCaptures = [];
@@ -20,34 +34,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   await refreshAllData();
 });
 
-// Load config keys from .env or localStorage
+// Load config keys from localStorage only
 async function loadConfigKeys() {
   let url = localStorage.getItem('admin_supabase_url');
   let key = localStorage.getItem('admin_supabase_key');
-
-  // Try to load from .env file first
-  try {
-    const res = await fetch('/.env');
-    if (res.ok) {
-      const text = await res.text();
-      const env = {};
-      text.split('\n').forEach(line => {
-        const parts = line.split('=');
-        if (parts.length >= 2) {
-          const k = parts[0].trim();
-          const v = parts.slice(1).join('=').trim().replace(/^['"]|['"]$/g, '');
-          if (k && v) {
-            env[k] = v;
-          }
-        }
-      });
-      // Prioritize service role key if added, else fallback to anon key
-      url = env['SUPABASE_URL'] || url;
-      key = env['SUPABASE_SERVICE_ROLE_KEY'] || env['SUPABASE_ANON_KEY'] || key;
-    }
-  } catch (e) {
-    console.warn("Could not fetch or parse .env file, using localStorage:", e);
-  }
 
   const statusEl = document.getElementById('connection-status');
   const statusText = document.getElementById('connection-text');
@@ -55,16 +45,43 @@ async function loadConfigKeys() {
   if (url && key) {
     try {
       supabaseClient = supabase.createClient(url, key);
-      statusEl.className = "flex items-center space-x-2 bg-emerald-950/50 border border-emerald-500/30 text-emerald-450 px-3 py-1.5 rounded-full text-xs font-medium";
+      statusEl.className = "flex items-center space-x-2 bg-emerald-950/50 border border-emerald-500/30 text-emerald-450 px-3 py-1.5 rounded-full text-xs font-medium hover:bg-emerald-900/50 transition cursor-pointer";
       statusText.innerText = "Connected to Supabase";
     } catch (e) {
       console.error(e);
-      statusEl.className = "flex items-center space-x-2 bg-amber-950/50 border border-amber-500/30 text-amber-500 px-3 py-1.5 rounded-full text-xs font-medium";
+      statusEl.className = "flex items-center space-x-2 bg-amber-950/50 border border-amber-500/30 text-amber-500 px-3 py-1.5 rounded-full text-xs font-medium hover:bg-amber-900/50 transition cursor-pointer";
       statusText.innerText = "Connection Failed";
     }
   } else {
-    statusEl.className = "flex items-center space-x-2 bg-red-950/50 border border-red-500/30 text-red-400 px-3 py-1.5 rounded-full text-xs font-medium";
+    statusEl.className = "flex items-center space-x-2 bg-red-950/50 border border-red-500/30 text-red-400 px-3 py-1.5 rounded-full text-xs font-medium hover:bg-red-900/50 transition cursor-pointer";
     statusText.innerText = "Disconnected (Setup Keys)";
+    // Automatically open settings if no keys
+    openSettingsModal();
+  }
+}
+
+function openSettingsModal() {
+  document.getElementById('settings-url').value = localStorage.getItem('admin_supabase_url') || '';
+  document.getElementById('settings-key').value = localStorage.getItem('admin_supabase_key') || '';
+  document.getElementById('settings-modal').classList.remove('hidden');
+}
+
+function closeSettingsModal() {
+  document.getElementById('settings-modal').classList.add('hidden');
+}
+
+async function saveSettings() {
+  const url = document.getElementById('settings-url').value.trim();
+  const key = document.getElementById('settings-key').value.trim();
+  
+  if (url && key) {
+    localStorage.setItem('admin_supabase_url', url);
+    localStorage.setItem('admin_supabase_key', key);
+    closeSettingsModal();
+    await loadConfigKeys();
+    await refreshAllData();
+  } else {
+    alert("Please provide both the Supabase URL and the Service Role Key.");
   }
 }
 
@@ -197,9 +214,9 @@ function loadFallbackDemo() {
     { id: 'c2', user_id: '2', pigeon_id: 'p3', captured_at: '2026-07-09T10:45:00Z' }
   ];
   rawContacts = [
-    { id: 1, user_id: '1', user_email: 'juan.perez@fancier.com', subject: 'Problem with uploading loft image', type: 'bug', description: 'When I try to select a custom image for my loft, the app gets stuck loading.', solved: false },
-    { id: 2, user_id: '2', user_email: 'maria.gomez@loft.es', subject: 'Requesting weather feature', type: 'feedback', description: 'It would be nice to see the weather forecast directly in the ranking screen.', solved: false },
-    { id: 3, user_id: '3', user_email: 'carlos.fancier@pigeons.net', subject: 'Forgot verification email link', type: 'support', description: 'I did not receive the verification code on signup. Can you check my email?', solved: true }
+    { id: '1', user_id: '1', user_email: 'juan.perez@fancier.com', subject: 'Problem with uploading loft image', type: 'bug', description: 'When I try to select a custom image for my loft, the app gets stuck loading.', status: 'new' },
+    { id: '2', user_id: '2', user_email: 'maria.gomez@loft.es', subject: 'Requesting weather feature', type: 'feedback', description: 'It would be nice to see the weather forecast directly in the ranking screen.', status: 'pending' },
+    { id: '3', user_id: '3', user_email: 'carlos.fancier@pigeons.net', subject: 'Forgot verification email link', type: 'support', description: 'I did not receive the verification code on signup. Can you check my email?', status: 'solved' }
   ];
   rawPlans = [
     { id: 'plan_free', name: 'Free Tier', price_usd: 0, is_active: true },
@@ -225,8 +242,19 @@ function updateMetricsUI() {
 
   document.getElementById('stat-total-captures').innerText = rawCaptures.length;
 
-  const activeSubs = rawSubscriptions.filter(s => s.status === 'active').length;
+  const now = new Date();
+  const activeSubs = rawSubscriptions.filter(s => 
+    (s.plan_id !== 'free' && s.plan_id !== 'plan_free') && 
+    s.status === 'active' && 
+    (!s.end_date && !s.expires_at || new Date(s.end_date || s.expires_at) > now)
+  ).length;
+  const expiredSubs = rawSubscriptions.filter(s => 
+    (s.plan_id !== 'free' && s.plan_id !== 'plan_free') && 
+    (s.status !== 'active' || ( (s.end_date || s.expires_at) && new Date(s.end_date || s.expires_at) <= now ))
+  ).length;
+
   document.getElementById('stat-active-subs').innerText = activeSubs;
+  document.getElementById('stat-mrr').innerHTML = `<i class="fa-solid fa-gem"></i> ${activeSubs} Active / ${expiredSubs} Expired`;
 }
 
 // Update Chart visualizations
@@ -270,10 +298,16 @@ function updateCharts() {
 
   const tiers = { 'Free': 0, 'Premium Monthly': 0, 'Premium Yearly': 0 };
   rawUsers.forEach(u => {
-    const sub = rawSubscriptions.find(s => s.user_id === u.id && s.status === 'active');
-    if (sub) {
-      if (sub.plan_id === 'plan_premium_yearly') tiers['Premium Yearly']++;
-      else tiers['Premium Monthly']++;
+    const sub = rawSubscriptions.find(s => s.user_id === u.id && (s.plan_id !== 'free' && s.plan_id !== 'plan_free'));
+    const now = new Date();
+    const isActive = sub && sub.status === 'active' && (!sub.end_date && !sub.expires_at || new Date(sub.end_date || sub.expires_at) > now);
+    
+    if (isActive) {
+      if (sub.plan_id === 'pro_annual' || sub.plan_id === 'plan_premium_yearly') {
+        tiers['Premium Yearly']++;
+      } else {
+        tiers['Premium Monthly']++;
+      }
     } else {
       tiers['Free']++;
     }
@@ -330,13 +364,13 @@ function renderUsersTable() {
     const joinDate = u.created_at ? u.created_at.substring(0, 10) : '--';
 
     tr.innerHTML = `
-      <td class="p-4 flex items-center space-x-3">
-        <div class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center font-bold text-white text-xs">
-          ${u.display_name.charAt(0).toUpperCase()}
+      <td class="p-4 flex items-center space-x-3 cursor-pointer group" onclick="showUserModal('${u.id}')">
+        <div class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center font-bold text-white text-xs group-hover:bg-brand-500 transition-colors">
+          ${escapeHTML(u.display_name).charAt(0).toUpperCase()}
         </div>
         <div>
-          <div class="font-bold text-white">${u.display_name}</div>
-          <div class="text-xs text-slate-400">${u.email}</div>
+          <div class="font-bold text-white group-hover:text-brand-400 transition-colors">${escapeHTML(u.display_name)}</div>
+          <div class="text-xs text-slate-400">${escapeHTML(u.email)}</div>
         </div>
       </td>
       <td class="p-4">${badgeStatus}</td>
@@ -379,6 +413,89 @@ async function unbanUser(userId) {
   refreshAllData();
 }
 
+// Modal and Detail popups logic
+function showUserModal(userId) {
+  const u = rawUsers.find(user => user.id === userId);
+  if (!u) return;
+
+  const now = new Date();
+  const sub = rawSubscriptions.find(s => s.user_id === userId && (s.plan_id !== 'free' && s.plan_id !== 'plan_free'));
+  let planName = 'Free Tier';
+  if (sub) {
+    const isPremiumActive = sub.status === 'active' && (!sub.end_date && !sub.expires_at || new Date(sub.end_date || sub.expires_at) > now);
+    const plan = rawPlans.find(p => p.id === sub.plan_id);
+    const displayName = plan ? plan.name : sub.plan_id;
+    if (isPremiumActive) {
+      planName = `${displayName} (Active)`;
+      if (sub.end_date || sub.expires_at) {
+        planName += ` - Expires: ${(sub.end_date || sub.expires_at).substring(0, 10)}`;
+      }
+    } else {
+      planName = `${displayName} (Expired/Inactive)`;
+    }
+  }
+
+  const pigeons = rawPigeons.filter(p => p.user_id === userId);
+  const captures = rawCaptures.filter(c => c.user_id === userId);
+
+  document.getElementById('modal-user-avatar').innerText = u.display_name.charAt(0).toUpperCase();
+  document.getElementById('modal-user-name').innerText = u.display_name;
+  document.getElementById('modal-user-email').innerText = u.email;
+  
+  const statusBadge = u.account_status === 'active'
+    ? '<span class="bg-emerald-500/10 border border-emerald-500/20 text-emerald-450 px-2 py-0.5 rounded-full text-xs font-semibold">Active</span>'
+    : u.account_status === 'inactive'
+    ? '<span class="bg-amber-500/10 border border-amber-500/20 text-amber-500 px-2 py-0.5 rounded-full text-xs font-semibold">Banned</span>'
+    : '<span class="bg-red-500/10 border border-red-500/20 text-red-400 px-2 py-0.5 rounded-full text-xs font-semibold">Deleted</span>';
+  document.getElementById('modal-user-status').innerHTML = statusBadge;
+
+  document.getElementById('modal-user-plan').innerText = planName;
+  document.getElementById('modal-user-username').innerText = `@${u.username || 'fancier'}`;
+  document.getElementById('modal-user-joined').innerText = u.created_at ? u.created_at.substring(0, 10) : '--';
+
+  const pigeonsList = document.getElementById('modal-pigeons-list');
+  document.getElementById('modal-pigeons-count').innerText = pigeons.length;
+  pigeonsList.innerHTML = '';
+  if (pigeons.length === 0) {
+    pigeonsList.innerHTML = '<div class="p-3 text-xs text-slate-500 text-center">No pigeons registered</div>';
+  } else {
+    pigeons.forEach(p => {
+      const pDiv = document.createElement('div');
+      pDiv.className = "p-3 flex justify-between items-center text-xs text-slate-350 hover:bg-slate-800/10";
+      pDiv.innerHTML = `
+        <div class="font-semibold text-slate-200">${escapeHTML(p.name || 'Unnamed Pigeon')}</div>
+        <div class="font-mono text-slate-450">${escapeHTML(p.ring_number || 'No Ring')} (${escapeHTML(p.sex || 'U')})</div>
+      `;
+      pigeonsList.appendChild(pDiv);
+    });
+  }
+
+  const capturesList = document.getElementById('modal-captures-list');
+  document.getElementById('modal-captures-count').innerText = captures.length;
+  capturesList.innerHTML = '';
+  if (captures.length === 0) {
+    capturesList.innerHTML = '<div class="p-3 text-xs text-slate-500 text-center">No captures recorded</div>';
+  } else {
+    captures.forEach(c => {
+      const pig = rawPigeons.find(p => p.id === c.pigeon_id);
+      const pigName = pig ? pig.name : 'Unknown Pigeon';
+      const cDiv = document.createElement('div');
+      cDiv.className = "p-3 flex justify-between items-center text-xs text-slate-350 hover:bg-slate-800/10";
+      cDiv.innerHTML = `
+        <div>Captured <strong class="text-slate-250">${escapeHTML(pigName)}</strong></div>
+        <div class="text-slate-450 font-mono">${c.captured_at ? escapeHTML(c.captured_at.substring(0, 16).replace('T', ' ')) : 'Unknown Date'}</div>
+      `;
+      capturesList.appendChild(cDiv);
+    });
+  }
+
+  document.getElementById('user-modal').classList.remove('hidden');
+}
+
+function closeUserModal() {
+  document.getElementById('user-modal').classList.add('hidden');
+}
+
 // Filter Contact requests list
 function filterContacts(filter) {
   activeContactFilter = filter;
@@ -390,18 +507,49 @@ function filterContacts(filter) {
   renderContactsList();
 }
 
+function filterStatus(filter) {
+  activeStatusFilter = filter;
+  ['all', 'new', 'pending', 'solved', 'closed'].forEach(f => {
+    const btn = document.getElementById(`filter-status-${f}`);
+    if (btn) {
+      btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition";
+    }
+  });
+  const activeBtn = document.getElementById(`filter-status-${filter}`);
+  if (activeBtn) {
+    activeBtn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-500 text-white transition";
+  }
+  renderContactsList();
+}
+
 // Render Contact Requests cards
 function renderContactsList() {
   const container = document.getElementById('contacts-list');
   container.innerHTML = '';
 
   const filtered = rawContacts.filter(c => {
-    if (activeContactFilter === 'all') return true;
-    const type = (c.type || '').toLowerCase();
-    if (activeContactFilter === 'bug') return type.includes('bug') || type.includes('error');
-    if (activeContactFilter === 'support') return type.includes('support') || type.includes('help');
-    if (activeContactFilter === 'feedback') return type.includes('feedback') || type.includes('other') || type.includes('suggest');
-    return type === activeContactFilter;
+    // 1. Filter by Type
+    let typeMatch = false;
+    if (activeContactFilter === 'all') {
+      typeMatch = true;
+    } else {
+      const type = (c.type || '').toLowerCase();
+      if (activeContactFilter === 'bug') typeMatch = type.includes('bug') || type.includes('error');
+      else if (activeContactFilter === 'support') typeMatch = type.includes('support') || type.includes('help');
+      else if (activeContactFilter === 'feedback') typeMatch = type.includes('feedback') || type.includes('other') || type.includes('suggest');
+      else typeMatch = (type === activeContactFilter);
+    }
+
+    // 2. Filter by Status
+    let statusMatch = false;
+    const status = c.status || 'new';
+    if (activeStatusFilter === 'all') {
+      statusMatch = true;
+    } else {
+      statusMatch = (status === activeStatusFilter);
+    }
+
+    return typeMatch && statusMatch;
   });
 
   if (filtered.length === 0) {
@@ -416,7 +564,20 @@ function renderContactsList() {
 
   filtered.forEach(c => {
     const card = document.createElement('div');
-    card.className = `bg-dark-900 border p-5 rounded-2xl transition ${c.solved ? 'border-slate-800 opacity-60' : 'border-slate-800'}`;
+    const status = c.status || 'new';
+    
+    // Dim card opacity slightly if solved or closed
+    const opacityClass = (status === 'solved' || status === 'closed') ? 'opacity-60 border-slate-800' : 'border-slate-800 hover:border-slate-700/60';
+    card.className = `bg-dark-900 border p-5 rounded-2xl transition cursor-pointer ${opacityClass}`;
+    
+    // Automatically transition 'new' to 'pending' when clicked
+    card.addEventListener('click', async (e) => {
+      // Don't transition if they clicked on action buttons
+      if (e.target.closest('button')) return;
+      if (status === 'new') {
+        await updateContactStatus(c.id, 'pending');
+      }
+    });
 
     const type = (c.type || '').toLowerCase();
     const typeBadge = type.includes('bug')
@@ -425,24 +586,45 @@ function renderContactsList() {
       ? '<span class="bg-blue-500/10 border border-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider">Support</span>'
       : '<span class="bg-purple-500/10 border border-purple-500/20 text-purple-450 px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider">Feedback / Other</span>';
 
-    const statusButton = c.solved
-      ? '<span class="text-xs text-emerald-450 font-semibold"><i class="fa-solid fa-circle-check"></i> Solved</span>'
-      : `<button onclick="solveContact(${c.id})" class="text-xs font-semibold bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/30 text-emerald-450 px-3 py-1.5 rounded-lg transition"><i class="fa-solid fa-check"></i> Mark Solved</button>`;
+    // Status badges (New, Pending, Solved, Closed)
+    let statusBadge = '';
+    if (status === 'new') {
+      statusBadge = '<span class="bg-rose-500/15 border border-rose-500/30 text-rose-400 px-2.5 py-0.5 rounded-full text-xs font-semibold flex items-center space-x-1.5"><span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span> <span>New</span></span>';
+    } else if (status === 'pending') {
+      statusBadge = '<span class="bg-amber-500/15 border border-amber-500/30 text-amber-500 px-2.5 py-0.5 rounded-full text-xs font-semibold flex items-center space-x-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> <span>Pending</span></span>';
+    } else if (status === 'solved') {
+      statusBadge = '<span class="bg-emerald-500/15 border border-emerald-500/30 text-emerald-450 px-2.5 py-0.5 rounded-full text-xs font-semibold flex items-center space-x-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> <span>Solved</span></span>';
+    } else {
+      statusBadge = '<span class="bg-slate-500/15 border border-slate-500/30 text-slate-400 px-2.5 py-0.5 rounded-full text-xs font-semibold flex items-center space-x-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> <span>Closed</span></span>';
+    }
+
+    // Render action buttons
+    let actionButtons = '';
+    if (status === 'new') {
+      actionButtons += `<button onclick="updateContactStatus('${c.id}', 'pending')" class="text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg transition mr-2">Investigate</button>`;
+    }
+    if (status !== 'solved') {
+      actionButtons += `<button onclick="updateContactStatus('${c.id}', 'solved')" class="text-xs font-semibold bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/30 text-emerald-450 px-3 py-1.5 rounded-lg transition mr-2"><i class="fa-solid fa-check"></i> Solve</button>`;
+    }
+    if (status !== 'closed') {
+      actionButtons += `<button onclick="updateContactStatus('${c.id}', 'closed')" class="text-xs font-semibold bg-red-950 hover:bg-red-900 border border-red-500/30 text-red-400 px-3 py-1.5 rounded-lg transition"><i class="fa-solid fa-xmark"></i> Close</button>`;
+    }
 
     card.innerHTML = `
       <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
-        <div class="space-y-2">
-          <div class="flex items-center space-x-2">
+        <div class="space-y-2 flex-1">
+          <div class="flex items-center space-x-2 flex-wrap gap-y-1">
             ${typeBadge}
-            <h4 class="font-bold text-white text-base">${c.subject}</h4>
+            ${statusBadge}
+            <h4 class="font-bold text-white text-base ml-1">${escapeHTML(c.subject)}</h4>
           </div>
-          <p class="text-sm text-slate-300 leading-relaxed">${c.description}</p>
+          <p class="text-sm text-slate-300 leading-relaxed">${escapeHTML(c.description)}</p>
           <div class="flex items-center space-x-2 text-xs text-slate-450">
-            <span>By: <strong class="text-slate-300">${c.user_email}</strong></span>
+            <span>By: <strong class="text-slate-300">${escapeHTML(c.user_email)}</strong></span>
           </div>
         </div>
-        <div class="self-end sm:self-center">
-          ${statusButton}
+        <div class="self-end sm:self-center flex flex-row items-center">
+          ${actionButtons}
         </div>
       </div>
     `;
@@ -450,34 +632,46 @@ function renderContactsList() {
   });
 }
 
-// Mark contact request as solved
-async function solveContact(contactId) {
+// Update status of contact request
+async function updateContactStatus(contactId, newStatus) {
   if (supabaseClient) {
-    await supabaseClient.from('contact_requests').delete().eq('id', contactId);
+    const { error } = await supabaseClient.from('contact_requests').update({ status: newStatus }).eq('id', contactId);
+    if (error) console.error("Error updating contact request status:", error);
   } else {
     const idx = rawContacts.findIndex(c => c.id === contactId);
-    if (idx !== -1) rawContacts[idx].solved = true;
+    if (idx !== -1) rawContacts[idx].status = newStatus;
   }
-  refreshAllData();
+  await refreshAllData();
 }
 
 // Render Subscriptions and available plans list
 function renderSubscriptionsSection() {
   const plansContainer = document.getElementById('plans-list');
   plansContainer.innerHTML = '';
+  const now = new Date();
   rawPlans.forEach(p => {
-    let subCount = rawSubscriptions.filter(s => s.plan_id === p.id && s.status === 'active').length;
-    if (p.id === 'plan_free' || p.price_usd === 0) {
-      const activePremiums = rawSubscriptions.filter(s => s.status === 'active').length;
+    let subCount = 0;
+    if (p.id === 'plan_free' || p.id === 'free' || p.price_usd === 0) {
+      const activePremiums = rawSubscriptions.filter(s => 
+        (s.plan_id !== 'free' && s.plan_id !== 'plan_free') && 
+        s.status === 'active' && 
+        (!s.end_date && !s.expires_at || new Date(s.end_date || s.expires_at) > now)
+      ).length;
       subCount = Math.max(0, rawUsers.length - activePremiums);
+    } else {
+      subCount = rawSubscriptions.filter(s => 
+        s.plan_id === p.id && 
+        s.status === 'active' && 
+        (!s.end_date && !s.expires_at || new Date(s.end_date || s.expires_at) > now)
+      ).length;
     }
 
     const planDiv = document.createElement('div');
     planDiv.className = "bg-slate-950 border border-slate-800 p-4 rounded-xl flex items-center justify-between";
     planDiv.innerHTML = `
       <div>
-        <div class="font-bold text-white text-sm">${p.name}</div>
-        <div class="text-xs text-slate-400">$${p.price_usd} USD</div>
+        <div class="font-bold text-white text-sm">${escapeHTML(p.name)}</div>
+        <div class="text-xs text-slate-400">$${escapeHTML(p.price_usd?.toString() || '0')} USD</div>
       </div>
       <div class="text-right flex flex-col items-end space-y-1">
         <span class="bg-blue-500/10 text-blue-400 text-xs px-2 py-0.5 rounded font-semibold uppercase tracking-wider">Active</span>
@@ -493,17 +687,22 @@ function renderSubscriptionsSection() {
     const tr = document.createElement('tr');
     tr.className = "hover:bg-slate-800/20 border-b border-slate-800/40 transition";
     
-    const planName = s.plan_id === 'plan_premium_yearly' ? 'Premium Yearly' : 'Premium Monthly';
-    const activeUntil = s.expires_at ? s.expires_at.substring(0, 10) : '--';
-    const subBadge = s.status === 'active'
+    let planName = 'Free Tier';
+    if (s.plan_id === 'plan_premium_yearly' || s.plan_id === 'pro_annual') planName = 'Premium Yearly';
+    else if (s.plan_id === 'plan_premium_monthly' || s.plan_id === 'pro_monthly') planName = 'Premium Monthly';
+    else if (s.plan_id === 'plan_free' || s.plan_id === 'free') planName = 'Free Tier';
+
+    const activeUntil = (s.end_date || s.expires_at) ? (s.end_date || s.expires_at).substring(0, 10) : '--';
+    const isExpired = s.status !== 'active' || ( (s.end_date || s.expires_at) && new Date(s.end_date || s.expires_at) <= now );
+    const subBadge = !isExpired
       ? '<span class="bg-emerald-500/10 text-emerald-450 text-xs font-semibold px-2 py-0.5 rounded">Active</span>'
-      : '<span class="bg-red-500/10 text-red-400 text-xs font-semibold px-2 py-0.5 rounded">Expired</span>';
+      : '<span class="bg-red-500/10 text-red-400 text-xs font-semibold px-2 py-0.5 rounded">Expired/Inactive</span>';
 
     tr.innerHTML = `
-      <td class="p-4 font-semibold text-white">${s.user_email}</td>
-      <td class="p-4">${planName}</td>
+      <td class="p-4 font-semibold text-white">${escapeHTML(s.user_email)}</td>
+      <td class="p-4">${escapeHTML(planName)}</td>
       <td class="p-4">${subBadge}</td>
-      <td class="p-4 text-slate-400">${activeUntil}</td>
+      <td class="p-4 text-slate-400">${escapeHTML(activeUntil)}</td>
     `;
     tbody.appendChild(tr);
   });
