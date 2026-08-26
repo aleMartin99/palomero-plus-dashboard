@@ -229,6 +229,17 @@ function loadFallbackDemo() {
   ];
 }
 
+// Helper to get a user's active premium subscription
+function getUserActivePremiumSub(userId) {
+  const now = new Date();
+  return rawSubscriptions.find(s => 
+    s.user_id === userId && 
+    (s.plan_id !== 'free' && s.plan_id !== 'plan_free') && 
+    s.status === 'active' && 
+    (!s.end_date && !s.expires_at || new Date(s.end_date || s.expires_at) > now)
+  );
+}
+
 // Update Metric UI boxes
 function updateMetricsUI() {
   document.getElementById('stat-total-users').innerText = rawUsers.length;
@@ -243,15 +254,20 @@ function updateMetricsUI() {
   document.getElementById('stat-total-captures').innerText = rawCaptures.length;
 
   const now = new Date();
-  const activeSubs = rawSubscriptions.filter(s => 
-    (s.plan_id !== 'free' && s.plan_id !== 'plan_free') && 
-    s.status === 'active' && 
-    (!s.end_date && !s.expires_at || new Date(s.end_date || s.expires_at) > now)
-  ).length;
-  const expiredSubs = rawSubscriptions.filter(s => 
-    (s.plan_id !== 'free' && s.plan_id !== 'plan_free') && 
-    (s.status !== 'active' || ( (s.end_date || s.expires_at) && new Date(s.end_date || s.expires_at) <= now ))
-  ).length;
+  
+  // Only count active subscriptions for users that actually exist in rawUsers
+  const activeSubs = rawUsers.filter(u => getUserActivePremiumSub(u.id)).length;
+  
+  // For expired, we can count users who have NO active sub, but DO have an expired premium sub
+  const expiredSubs = rawUsers.filter(u => {
+    if (getUserActivePremiumSub(u.id)) return false; // has active
+    const hasExpired = rawSubscriptions.some(s => 
+      s.user_id === u.id && 
+      (s.plan_id !== 'free' && s.plan_id !== 'plan_free') && 
+      (s.status !== 'active' || ( (s.end_date || s.expires_at) && new Date(s.end_date || s.expires_at) <= now ))
+    );
+    return hasExpired;
+  }).length;
 
   document.getElementById('stat-active-subs').innerText = activeSubs;
   document.getElementById('stat-mrr').innerHTML = `<i class="fa-solid fa-gem"></i> ${activeSubs} Active / ${expiredSubs} Expired`;
@@ -298,12 +314,10 @@ function updateCharts() {
 
   const tiers = { 'Free': 0, 'Premium Monthly': 0, 'Premium Yearly': 0 };
   rawUsers.forEach(u => {
-    const sub = rawSubscriptions.find(s => s.user_id === u.id && (s.plan_id !== 'free' && s.plan_id !== 'plan_free'));
-    const now = new Date();
-    const isActive = sub && sub.status === 'active' && (!sub.end_date && !sub.expires_at || new Date(sub.end_date || sub.expires_at) > now);
+    const activeSub = getUserActivePremiumSub(u.id);
     
-    if (isActive) {
-      if (sub.plan_id === 'pro_annual' || sub.plan_id === 'plan_premium_yearly') {
+    if (activeSub) {
+      if (activeSub.plan_id === 'pro_annual' || activeSub.plan_id === 'plan_premium_yearly') {
         tiers['Premium Yearly']++;
       } else {
         tiers['Premium Monthly']++;
@@ -419,7 +433,11 @@ function showUserModal(userId) {
   if (!u) return;
 
   const now = new Date();
-  const sub = rawSubscriptions.find(s => s.user_id === userId && (s.plan_id !== 'free' && s.plan_id !== 'plan_free'));
+  let sub = getUserActivePremiumSub(userId);
+  if (!sub) {
+    // If no active, try to find an expired premium sub
+    sub = rawSubscriptions.find(s => s.user_id === userId && (s.plan_id !== 'free' && s.plan_id !== 'plan_free'));
+  }
   let planName = 'Free Tier';
   if (sub) {
     const isPremiumActive = sub.status === 'active' && (!sub.end_date && !sub.expires_at || new Date(sub.end_date || sub.expires_at) > now);
@@ -652,18 +670,13 @@ function renderSubscriptionsSection() {
   rawPlans.forEach(p => {
     let subCount = 0;
     if (p.id === 'plan_free' || p.id === 'free' || p.price_usd === 0) {
-      const activePremiums = rawSubscriptions.filter(s => 
-        (s.plan_id !== 'free' && s.plan_id !== 'plan_free') && 
-        s.status === 'active' && 
-        (!s.end_date && !s.expires_at || new Date(s.end_date || s.expires_at) > now)
-      ).length;
-      subCount = Math.max(0, rawUsers.length - activePremiums);
+      const activePremiumsCount = rawUsers.filter(u => getUserActivePremiumSub(u.id)).length;
+      subCount = Math.max(0, rawUsers.length - activePremiumsCount);
     } else {
-      subCount = rawSubscriptions.filter(s => 
-        s.plan_id === p.id && 
-        s.status === 'active' && 
-        (!s.end_date && !s.expires_at || new Date(s.end_date || s.expires_at) > now)
-      ).length;
+      subCount = rawUsers.filter(u => {
+        const activeSub = getUserActivePremiumSub(u.id);
+        return activeSub && activeSub.plan_id === p.id;
+      }).length;
     }
 
     const planDiv = document.createElement('div');

@@ -1,8 +1,32 @@
 {
   "name": "palomero-plus-admin",
-  "version": "1.0.0",
+  "private": true,
+  "version": "2.0.0",
   "description": "Super Admin Dashboard for Palomero Plus App",
+  "type": "module",
   "scripts": {
-    "start": "npx -y http-server -p 8080"
+    "start": "vite",
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@ant-design/charts": "^2.6.7",
+    "@ant-design/icons": "^6.3.2",
+    "@supabase/supabase-js": "^2.112.3",
+    "antd": "^6.6.1",
+    "dayjs": "^1.11.23",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
+    "oxlint": "^1.75.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0"
   }
 }
