@@ -17,16 +17,38 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-admin-secret',
-};
+function getCorsHeaders(req?: Request) {
+  const allowedOriginEnv = Deno.env.get('ALLOWED_ORIGIN');
+  let allowOrigin = '*';
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
+  if (allowedOriginEnv) {
+    allowOrigin = allowedOriginEnv;
+  } else if (req?.headers.get('origin')) {
+    allowOrigin = req.headers.get('origin')!;
+  }
+
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-admin-secret',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  };
+}
+
+function json(body: unknown, status = 200, corsHeaders?: Record<string, string>) {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(corsHeaders || getCorsHeaders()),
+  };
+  return new Response(JSON.stringify(body), { status, headers });
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
 }
 
 // PostgREST caps every .select() at 1000 rows by default (db-max-rows). A plain
@@ -58,6 +80,8 @@ async function fetchAllRows(
 }
 
 Deno.serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -67,15 +91,23 @@ Deno.serve(async (req: Request) => {
   const ADMIN_DASHBOARD_KEY = Deno.env.get('ADMIN_DASHBOARD_KEY');
 
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-    return json({ error: 'Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY in the function environment.' }, 500);
+    return json(
+      { error: 'Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY in the function environment.' },
+      500,
+      corsHeaders
+    );
   }
   if (!ADMIN_DASHBOARD_KEY) {
-    return json({ error: 'Missing ADMIN_DASHBOARD_KEY secret. Set it with: supabase secrets set ADMIN_DASHBOARD_KEY=... ' }, 500);
+    return json(
+      { error: 'Missing ADMIN_DASHBOARD_KEY secret. Set it with: supabase secrets set ADMIN_DASHBOARD_KEY=... ' },
+      500,
+      corsHeaders
+    );
   }
 
-  const clientSecret = req.headers.get('x-admin-secret');
-  if (clientSecret !== ADMIN_DASHBOARD_KEY) {
-    return json({ error: "Unauthorized. Missing or invalid 'x-admin-secret' header." }, 401);
+  const clientSecret = req.headers.get('x-admin-secret') || '';
+  if (!timingSafeEqual(clientSecret, ADMIN_DASHBOARD_KEY)) {
+    return json({ error: "Unauthorized. Missing or invalid 'x-admin-secret' header." }, 401, corsHeaders);
   }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -152,47 +184,63 @@ Deno.serve(async (req: Request) => {
         const emailById = new Map(users.map((u) => [u.id as string, u.email]));
         const emailFor = (userId: string) => emailById.get(userId) || 'Unknown Fancier';
 
-        return json({
-          users,
-          pigeons,
-          captures,
-          contactRequests: contacts.map((c) => ({ ...c, user_email: emailFor(c.user_id as string) })),
-          plans,
-          subscriptions: subscriptions.map((s) => ({ ...s, user_email: emailFor(s.user_id as string) })),
-        });
+        return json(
+          {
+            users,
+            pigeons,
+            captures,
+            contactRequests: contacts.map((c) => ({ ...c, user_email: emailFor(c.user_id as string) })),
+            plans,
+            subscriptions: subscriptions.map((s) => ({ ...s, user_email: emailFor(s.user_id as string) })),
+          },
+          200,
+          corsHeaders
+        );
       }
 
       case 'banUser': {
         const { userId } = payload ?? {};
-        if (!userId) return json({ error: 'Missing userId.' }, 400);
+        if (!userId || typeof userId !== 'string') {
+          return json({ error: "Invalid or missing 'userId' string parameter." }, 400, corsHeaders);
+        }
         const { error } = await supabase.from('users').update({ account_status: 'inactive' }).eq('id', userId);
         if (error) throw error;
-        return json({ success: true });
+        return json({ success: true }, 200, corsHeaders);
       }
 
       case 'unbanUser': {
         const { userId } = payload ?? {};
-        if (!userId) return json({ error: 'Missing userId.' }, 400);
+        if (!userId || typeof userId !== 'string') {
+          return json({ error: "Invalid or missing 'userId' string parameter." }, 400, corsHeaders);
+        }
         const { error } = await supabase.from('users').update({ account_status: 'active' }).eq('id', userId);
         if (error) throw error;
-        return json({ success: true });
+        return json({ success: true }, 200, corsHeaders);
       }
 
       case 'updateContactStatus': {
         const { contactId, status } = payload ?? {};
-        if (!contactId || !status) return json({ error: 'Missing contactId or status.' }, 400);
+        if (!contactId || typeof contactId !== 'string') {
+          return json({ error: "Invalid or missing 'contactId' string parameter." }, 400, corsHeaders);
+        }
+        if (!status || typeof status !== 'string') {
+          return json({ error: "Invalid or missing 'status' string parameter." }, 400, corsHeaders);
+        }
         const allowed = new Set(['new', 'pending', 'solved', 'closed']);
-        if (!allowed.has(status)) return json({ error: 'Invalid status.' }, 400);
+        if (!allowed.has(status)) {
+          return json({ error: 'Invalid status value.' }, 400, corsHeaders);
+        }
         const { error } = await supabase.from('contact_requests').update({ status }).eq('id', contactId);
         if (error) throw error;
-        return json({ success: true });
+        return json({ success: true }, 200, corsHeaders);
       }
 
       default:
-        return json({ error: `Unknown action: ${action}` }, 400);
+        return json({ error: `Unknown action: ${action}` }, 400, corsHeaders);
     }
   } catch (e) {
     console.error('[admin-dashboard-api] Unhandled error:', e);
-    return json({ error: e instanceof Error ? e.message : 'Unknown error occurred' }, 500);
+    return json({ error: e instanceof Error ? e.message : 'Unknown error occurred' }, 500, corsHeaders);
   }
 });
+
