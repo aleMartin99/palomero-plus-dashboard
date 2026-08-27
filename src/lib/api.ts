@@ -1,8 +1,11 @@
 import type { AdminDataBundle } from '../types';
 import { getStoredAdminSecret } from './adminSecret';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const DEFAULT_SUPABASE_URL = 'https://uhetvehxmnexfkxpenfi.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_QZpvvYtj5pu9dO9qgvcdrA_rAU-w2lX';
+
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || DEFAULT_SUPABASE_URL;
+const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || DEFAULT_SUPABASE_ANON_KEY;
 
 // The Edge Function is the only thing allowed to talk to Supabase with elevated
 // privileges. The browser only ever holds the public anon key (safe to ship) and the
