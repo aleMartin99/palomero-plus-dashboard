@@ -9,6 +9,8 @@ const { Title, Text, Paragraph } = Typography;
 interface Props {
   data: AdminDataBundle;
   onChanged: () => void;
+  /** Owner-only. The Edge Function enforces this too — hiding the buttons is just UX. */
+  canManage: boolean;
 }
 
 const typeTag: Record<string, { color: string; label: string }> = {
@@ -30,7 +32,7 @@ function statusTagFor(status: ContactStatus) {
   return { color: 'default', label: 'Closed' };
 }
 
-export default function ContactsPage({ data, onChanged }: Props) {
+export default function ContactsPage({ data, onChanged, canManage }: Props) {
   const { message } = App.useApp();
   const [typeFilter, setTypeFilter] = useState<'all' | 'support' | 'bug' | 'feedback'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'new' | 'pending' | 'solved' | 'closed'>('all');
@@ -116,10 +118,10 @@ export default function ContactsPage({ data, onChanged }: Props) {
               return (
                 <Card
                   key={c.id}
-                  hoverable
+                  hoverable={canManage}
                   style={{ opacity: status === 'solved' || status === 'closed' ? 0.65 : 1 }}
                   onClick={() => {
-                    if (status === 'new') setStatus(c.id, 'pending');
+                    if (canManage && status === 'new') setStatus(c.id, 'pending');
                   }}
                 >
                   <Row justify="space-between" gutter={[16, 16]}>
@@ -138,12 +140,12 @@ export default function ContactsPage({ data, onChanged }: Props) {
                     </Col>
                     <Col>
                       <Space onClick={(e) => e.stopPropagation()}>
-                        {status === 'new' && (
+                        {canManage && status === 'new' && (
                           <Button size="small" loading={actionLoading === c.id} onClick={() => setStatus(c.id, 'pending')}>
                             Investigate
                           </Button>
                         )}
-                        {status !== 'solved' && (
+                        {canManage && status !== 'solved' && (
                           <Button
                             size="small"
                             icon={<CheckOutlined />}
@@ -153,7 +155,7 @@ export default function ContactsPage({ data, onChanged }: Props) {
                             Solve
                           </Button>
                         )}
-                        {status !== 'closed' && (
+                        {canManage && status !== 'closed' && (
                           <Button
                             size="small"
                             danger

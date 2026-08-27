@@ -1,27 +1,38 @@
 import { useCallback, useEffect, useState } from 'react';
 import { App } from 'antd';
 import type { AdminDataBundle } from '../types';
-import { fetchAllData, isConfigured } from '../lib/api';
+import { fetchAllData } from '../lib/api';
 import { demoData } from '../lib/demoData';
 
 export type ConnectionState = 'unconfigured' | 'connected' | 'error';
 
-export function useAdminData() {
+const EMPTY: AdminDataBundle = {
+  users: [],
+  pigeons: [],
+  captures: [],
+  contactRequests: [],
+  plans: [],
+  subscriptions: [],
+};
+
+/**
+ * @param enabled only fetch once the user is signed in AND has a resolved role — otherwise
+ * every request would just bounce off the Edge Function with a 401/403.
+ */
+export function useAdminData(enabled: boolean) {
   const { message } = App.useApp();
-  const [data, setData] = useState<AdminDataBundle>(demoData);
+  const [data, setData] = useState<AdminDataBundle>(EMPTY);
   const [loading, setLoading] = useState(false);
   const [connection, setConnection] = useState<ConnectionState>('unconfigured');
 
   const refresh = useCallback(async () => {
-    if (!isConfigured()) {
-      setConnection('unconfigured');
-      setData(demoData);
-      return;
-    }
+    if (!enabled) return;
     setLoading(true);
     try {
       const bundle = await fetchAllData();
-      setData(bundle);
+      // A viewer's bundle legitimately omits sections their role can't see, so fill in
+      // empty arrays rather than letting undefined reach the components.
+      setData({ ...EMPTY, ...bundle });
       setConnection('connected');
     } catch (e) {
       console.error('Failed to fetch admin data, showing demo data instead.', e);
@@ -31,12 +42,11 @@ export function useAdminData() {
     } finally {
       setLoading(false);
     }
-  }, [message]);
+  }, [enabled, message]);
 
   useEffect(() => {
-    refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (enabled) refresh();
+  }, [enabled, refresh]);
 
   return { data, loading, connection, refresh };
 }

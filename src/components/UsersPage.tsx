@@ -30,6 +30,8 @@ const { Title, Text } = Typography;
 interface Props {
   data: AdminDataBundle;
   onChanged: () => void;
+  /** Owner-only. The Edge Function enforces this too — hiding the button is just UX. */
+  canBan: boolean;
 }
 
 function statusTag(status: string) {
@@ -38,7 +40,7 @@ function statusTag(status: string) {
   return <Tag color="error">Deleted</Tag>;
 }
 
-export default function UsersPage({ data, onChanged }: Props) {
+export default function UsersPage({ data, onChanged, canBan }: Props) {
   const { message } = App.useApp();
   const [selected, setSelected] = useState<AdminUser | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -115,7 +117,10 @@ export default function UsersPage({ data, onChanged }: Props) {
       render: formatDate,
       sorter: (a, b) => (a.created_at || '').localeCompare(b.created_at || ''),
     },
-    {
+  ];
+
+  if (canBan) {
+    columns.push({
       title: 'Actions',
       align: 'right',
       render: (_, u) =>
@@ -139,8 +144,8 @@ export default function UsersPage({ data, onChanged }: Props) {
             Deleted account
           </Text>
         ),
-    },
-  ];
+    });
+  }
 
   const selectedPigeons = selected ? data.pigeons.filter((p) => p.user_id === selected.id) : [];
   const selectedCaptures = selected ? data.captures.filter((c) => c.user_id === selected.id) : [];

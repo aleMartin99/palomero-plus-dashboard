@@ -1,26 +1,67 @@
 # Palomero Plus — Super Admin Dashboard
 
-React + TypeScript + [Ant Design](https://ant.design) rebuild of the admin dashboard, built with Vite.
+React + TypeScript + [Ant Design](https://ant.design) admin dashboard, built with Vite.
 
-## What changed from the previous version
+## Login & roles
 
-- **Stack**: was a single static `index.html` + `app.js` (Tailwind via CDN, vanilla JS DOM
-  manipulation). Now a proper Vite + React + TypeScript app using Ant Design components
-  (Table, Drawer, Card, Statistic, Segmented, `@ant-design/charts`, …).
-- **Security**: the old dashboard asked the admin to paste the Supabase **service_role key**
-  (full database access, bypasses every security rule) into a Settings modal, then stored it in
-  `localStorage` and used it directly from the browser. That key is gone from the client
-  entirely. Instead:
-  - The browser only ever holds the public **anon/publishable key** (safe to ship — same as
-    what already lived in the project's root `.env`) and a low-privilege **admin access key**
-    (`x-admin-secret`) entered once via the Settings modal.
-  - All privileged operations (listing auth users, reading every table, banning a user, updating
-    a contact request) now go through a new Supabase Edge Function,
-    `supabase/functions/admin-dashboard-api`, which is the only thing that touches the real
-    `service_role` key — and only server-side.
-  - This mirrors the `x-admin-secret` pattern already used by the `send-official-email` function
-    in this project, with its own dedicated secret (`ADMIN_DASHBOARD_KEY`) rather than sharing
-    one across functions.
+The dashboard is gated behind a real login. There is no shared password: each person signs in
+with their own Supabase Auth account, and the Edge Function decides what they're allowed to do
+based on their email.
+
+| | Owner | Viewer |
+|---|---|---|
+| Overview | ✅ | ✅ |
+| Users (view) | ✅ | ✅ |
+| Users — ban / reactivate | ✅ | ❌ |
+| Contact Requests | ✅ | ❌ (tab hidden) |
+| Subscriptions | ✅ | ❌ (tab hidden) |
+
+**Roles are enforced server-side.** `src/lib/roles.ts` decides what the UI *shows*;
+`supabase/functions/admin-dashboard-api/index.ts` is what actually *refuses* the request. A
+viewer's `getAll` response doesn't even contain contact-request data, and `banUser` /
+`updateContactStatus` return 403 for them regardless of what the browser sends. If you change a
+permission, change it in **both** files.
+
+Being a valid Palomero Plus app user is *not* dashboard access — the email must also be on the
+`ADMIN_ROLES` allowlist, or the function returns 403.
+
+### Setup (one-time)
+
+**1. Create an auth account for each person** (if they don't already have one) — Supabase
+dashboard → Authentication → Users → *Add user*. Use "Auto Confirm User" so they can sign in
+right away. Dedicated admin addresses are fine; so are your existing app accounts.
+
+**2. Set the allowlist secret** — this maps email → role and is the only place roles live:
+
+```bash
+supabase secrets set \
+  ADMIN_ROLES='{"you@example.com":"owner","partner@example.com":"viewer"}' \
+  --project-ref uhetvehxmnexfkxpenfi
+```
+
+Valid roles are `owner` and `viewer`. Emails are matched case-insensitively. To change who has
+access — or to revoke someone — update this secret; no code change or redeploy needed.
+
+**3. Deploy the function:**
+
+```bash
+supabase functions deploy admin-dashboard-api --project-ref uhetvehxmnexfkxpenfi
+```
+
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically — don't set them by
+hand. The old `ADMIN_DASHBOARD_KEY` secret is no longer used and can be deleted:
+`supabase secrets unset ADMIN_DASHBOARD_KEY --project-ref uhetvehxmnexfkxpenfi`.
+
+## Security model
+
+- The browser bundle contains only the **public anon key** (safe to ship) — used solely to sign
+  in and keep the session token fresh.
+- Every data request carries the signed-in user's **JWT**. The Edge Function verifies it with
+  `auth.getUser()`, which rejects the anon key, so holding the public key alone gets you nothing.
+- The **service_role key** (full DB access, bypasses RLS) exists only inside the Edge Function's
+  server-side environment and never reaches the browser.
+- Ban / reactivate / contact-status changes are logged with the acting admin's email — check
+  them with `supabase functions logs admin-dashboard-api`.
 
 ## Local development
 
@@ -29,46 +70,37 @@ npm install
 npm run dev      # or: npm start
 ```
 
-`.env.local` already has `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` filled in (both public
-values, safe to commit-adjacent but kept in a `*.local` file out of git by convention). See
-`.env.example` for the shape if you need to point at a different project.
-
-With no admin access key configured yet, the dashboard runs on **demo data** automatically —
-useful for UI work without touching the real database.
-
-## Deploying the Edge Function (not done yet — do this before "Save & connect" will work for real)
-
-1. Copy `supabase/functions/admin-dashboard-api/` into the `palomero_plus` repo's
-   `supabase/functions/` directory (same place `send-official-email` and `validate-purchase`
-   live).
-2. Set the admin secret once:
-   ```bash
-   supabase secrets set ADMIN_DASHBOARD_KEY=<choose-a-long-random-value> --project-ref uhetvehxmnexfkxpenfi
-   ```
-   `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` don't need to be set manually — Supabase
-   injects them into every Edge Function automatically.
-3. Deploy:
-   ```bash
-   supabase functions deploy admin-dashboard-api --project-ref uhetvehxmnexfkxpenfi
-   ```
-4. In the dashboard, click the gear icon in the header and paste the same value you set for
-   `ADMIN_DASHBOARD_KEY` as the "Admin access key". That's the only secret this app ever asks
-   an admin to type in.
+`.env.local` holds `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (both public values). See
+`.env.example` for the shape.
 
 ## Production build
 
 ```bash
 npm run build     # outputs to dist/
-npm run preview   # serve the production build locally to sanity-check it
+npm run preview   # serve the production build locally to check it
 ```
+
+## Data correctness notes
+
+Two things that have bitten this dashboard before — worth knowing if numbers ever look wrong:
+
+- **Pagination.** `auth.admin.listUsers()` defaults to 50 per page, and PostgREST caps every
+  `.select()` at 1000 rows. Both silently truncate rather than erroring. The function pages
+  through both (`fetchAllRows()` / the `listUsers` loop). **Any new table read must use
+  `fetchAllRows`** — a table under 1000 rows today will break silently the day it crosses.
+- **Pro entitlement.** Never count `status = 'active'` alone: rows whose `end_date` has passed
+  still say `active`, and the app treats those users as free. `src/lib/helpers.ts →
+  grantsProAccess()` mirrors the app's `Subscription.isPro` exactly (including the cancelled
+  grace period and the date-only/midnight rule). Keep the two in sync.
 
 ## Project layout
 
 ```
 src/
-  components/   OverviewPage, UsersPage, ContactsPage, SubscriptionsPage, SettingsModal
-  hooks/        useAdminData — fetches everything via the Edge Function, falls back to demo data
-  lib/          api.ts (Edge Function client), adminSecret.ts, demoData.ts, helpers.ts
+  components/   OverviewPage, UsersPage, ContactsPage, SubscriptionsPage, LoginPage
+  hooks/        useAdminData — fetches everything via the Edge Function
+  lib/          auth.tsx (session + role), roles.ts (permission matrix), api.ts,
+                supabaseClient.ts, helpers.ts (entitlement rules), demoData.ts
   types/        shared TypeScript interfaces
-supabase/functions/admin-dashboard-api/index.ts   the new backend, deploy separately (see above)
+supabase/functions/admin-dashboard-api/index.ts   the backend — auth, roles, and all DB access
 ```
