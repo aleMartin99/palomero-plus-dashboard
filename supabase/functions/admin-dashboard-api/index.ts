@@ -5,21 +5,14 @@
 // SUPABASE_SERVICE_ROLE_KEY that Supabase injects automatically into every Edge Function's
 // environment. That key never reaches the browser.
 //
-// The browser instead sends:
-//   - Authorization: Bearer <anon/publishable key>   (required by the Supabase gateway itself)
-//   - x-admin-secret: <ADMIN_DASHBOARD_KEY>            (low-privilege, revocable — set this as an
-//                                                        Edge Function secret; rotate any time by
-//                                                        redeploying the secret, no code change needed)
-//
-// This mirrors the pattern already used by send-official-email (x-admin-secret + ADMIN_API_KEY),
-// but with its own dedicated secret (ADMIN_DASHBOARD_KEY) so the two functions don't share a
-// blast radius.
+// Authenticates each request by verifying the signed-in user's JWT token and checking their
+// email against the ADMIN_ROLES environment secret allowlist.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-admin-secret',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 function json(body: unknown, status = 200) {
@@ -29,10 +22,6 @@ function json(body: unknown, status = 200) {
   });
 }
 
-// PostgREST caps every .select() at 1000 rows by default (db-max-rows). A plain
-// .select('*') therefore SILENTLY truncates any table past 1000 rows — which is exactly
-// how the dashboard ended up under-reporting subscriptions. Page through with .range()
-// until a short page comes back.
 const PAGE_SIZE = 1000;
 
 async function fetchAllRows(
@@ -64,52 +53,74 @@ Deno.serve(async (req: Request) => {
 
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
   const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const ADMIN_DASHBOARD_KEY = Deno.env.get('ADMIN_DASHBOARD_KEY');
 
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
     return json({ error: 'Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY in the function environment.' }, 500);
   }
-  if (!ADMIN_DASHBOARD_KEY) {
-    return json({ error: 'Missing ADMIN_DASHBOARD_KEY secret. Set it with: supabase secrets set ADMIN_DASHBOARD_KEY=... ' }, 500);
+
+  // 1. Verify User JWT from Authorization Header
+  const authHeader = req.headers.get('authorization') || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+  if (!token) {
+    return json({ error: 'Unauthorized: Missing Authorization header.' }, 401);
   }
 
-  const clientSecret = req.headers.get('x-admin-secret');
-  if (clientSecret !== ADMIN_DASHBOARD_KEY) {
-    return json({ error: "Unauthorized. Missing or invalid 'x-admin-secret' header." }, 401);
+  const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+  if (authError || !user || !user.email) {
+    return json({ error: 'Unauthorized: Invalid or expired session token.' }, 401);
   }
 
-  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  // 2. Check ADMIN_ROLES Allowlist
+  const rolesJson = Deno.env.get('ADMIN_ROLES') || '{}';
+  let adminRoles: Record<string, 'owner' | 'viewer'> = {};
+  try {
+    const parsed = JSON.parse(rolesJson);
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof k === 'string' && typeof v === 'string') {
+        adminRoles[k.toLowerCase()] = (v.toLowerCase() === 'owner' ? 'owner' : 'viewer');
+      }
+    }
+  } catch (e) {
+    console.error('[admin-dashboard-api] Failed to parse ADMIN_ROLES secret:', e);
+  }
+
+  const userEmail = user.email.toLowerCase();
+  const role = adminRoles[userEmail];
+
+  if (!role) {
+    return json({ error: `Forbidden: Email ${user.email} is not authorized on the dashboard allowlist.` }, 403);
+  }
 
   try {
     const { action, payload } = await req.json();
 
     switch (action) {
+      case 'whoami': {
+        return json({ email: user.email, role });
+      }
+
       case 'getAll': {
-        // 1. Auth users (requires service_role) + public profile join.
-        // auth.admin.listUsers() is PAGINATED (defaults to 50/page) — a single call silently
-        // truncates the list on any project with more than 50 users, which throws off every
-        // per-user stat downstream (verified %, pigeons/user, subscription tiers, ...). Page
-        // through all of it.
         let authUsers: Array<{ id: string; email?: string; email_confirmed_at?: string | null; created_at: string }> = [];
         try {
           const perPage = 1000;
           for (let page = 1; ; page++) {
-            const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+            const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
             if (error) {
               console.warn('[admin-dashboard-api] listUsers page error, stopping pagination.', error);
               break;
             }
             const batch = data?.users ?? [];
             authUsers.push(...batch);
-            if (batch.length < perPage) break; // last page
+            if (batch.length < perPage) break;
           }
         } catch (e) {
           console.warn('[admin-dashboard-api] Could not list auth users, falling back to profiles.', e);
         }
 
-        const publicProfiles = await fetchAllRows(supabase, 'users');
-        // Index by id so the join below is O(1) per user rather than O(n) — at 1400+ users
-        // on both sides a nested .find() is a needless ~2M comparisons.
+        const publicProfiles = await fetchAllRows(supabaseAdmin, 'users');
         const profileById = new Map(publicProfiles.map((p) => [p.id as string, p]));
 
         let users;
@@ -142,11 +153,11 @@ Deno.serve(async (req: Request) => {
         }
 
         const [pigeons, captures, contacts, plans, subscriptions] = await Promise.all([
-          fetchAllRows(supabase, 'pigeons'),
-          fetchAllRows(supabase, 'captures'),
-          fetchAllRows(supabase, 'contact_requests'),
-          fetchAllRows(supabase, 'subscription_plans'),
-          fetchAllRows(supabase, 'subscriptions'),
+          fetchAllRows(supabaseAdmin, 'pigeons'),
+          fetchAllRows(supabaseAdmin, 'captures'),
+          fetchAllRows(supabaseAdmin, 'contact_requests'),
+          fetchAllRows(supabaseAdmin, 'subscription_plans'),
+          fetchAllRows(supabaseAdmin, 'subscriptions'),
         ]);
 
         const emailById = new Map(users.map((u) => [u.id as string, u.email]));
@@ -163,27 +174,30 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'banUser': {
+        if (role !== 'owner') return json({ error: 'Forbidden: Requires owner role.' }, 403);
         const { userId } = payload ?? {};
         if (!userId) return json({ error: 'Missing userId.' }, 400);
-        const { error } = await supabase.from('users').update({ account_status: 'inactive' }).eq('id', userId);
+        const { error } = await supabaseAdmin.from('users').update({ account_status: 'inactive' }).eq('id', userId);
         if (error) throw error;
         return json({ success: true });
       }
 
       case 'unbanUser': {
+        if (role !== 'owner') return json({ error: 'Forbidden: Requires owner role.' }, 403);
         const { userId } = payload ?? {};
         if (!userId) return json({ error: 'Missing userId.' }, 400);
-        const { error } = await supabase.from('users').update({ account_status: 'active' }).eq('id', userId);
+        const { error } = await supabaseAdmin.from('users').update({ account_status: 'active' }).eq('id', userId);
         if (error) throw error;
         return json({ success: true });
       }
 
       case 'updateContactStatus': {
+        if (role !== 'owner') return json({ error: 'Forbidden: Requires owner role.' }, 403);
         const { contactId, status } = payload ?? {};
         if (!contactId || !status) return json({ error: 'Missing contactId or status.' }, 400);
         const allowed = new Set(['new', 'pending', 'solved', 'closed']);
         if (!allowed.has(status)) return json({ error: 'Invalid status.' }, 400);
-        const { error } = await supabase.from('contact_requests').update({ status }).eq('id', contactId);
+        const { error } = await supabaseAdmin.from('contact_requests').update({ status }).eq('id', contactId);
         if (error) throw error;
         return json({ success: true });
       }
