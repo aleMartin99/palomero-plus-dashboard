@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card, Form, Input, Button, Typography, Alert, Layout } from 'antd';
 import { LockOutlined, MailOutlined } from '@ant-design/icons';
 import { useAuth } from '../lib/auth';
+import { isSupabaseConfigured } from '../lib/supabaseClient';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -52,6 +53,16 @@ export default function LoginPage() {
           </Title>
           <Text type="secondary">Palomero Plus Admin</Text>
         </div>
+
+        {!isSupabaseConfigured && (
+          <Alert
+            type="warning"
+            message="Environment Variables Missing"
+            description="Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your Vercel Project Settings."
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
 
         {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />}
 
