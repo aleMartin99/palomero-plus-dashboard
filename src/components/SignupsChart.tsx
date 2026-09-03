@@ -88,8 +88,11 @@ export default function SignupsChart({ users }: Props) {
   return (
     <Card
       title={t('overview.signupsTitle')}
+      styles={{
+        header: { flexWrap: 'wrap', gap: 8, height: 'auto', minHeight: 56, padding: '12px 16px' },
+      }}
       extra={
-        <Space wrap>
+        <Space wrap size={[8, 8]}>
           <Segmented
             size="small"
             value={mode}

@@ -41,13 +41,13 @@ export default function OverviewPage({ data, loading, onRefresh }: Props) {
   return (
     <div>
       <Row justify="space-between" align="middle" gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col>
+        <Col xs={24} sm="auto">
           <Title level={3} style={{ margin: 0 }}>
             {t('overview.title')}
           </Title>
           <Text type="secondary">{t('overview.subtitle')}</Text>
         </Col>
-        <Col>
+        <Col xs={24} sm="auto">
           <Button type="primary" icon={<ReloadOutlined />} loading={loading} onClick={onRefresh}>
             {t('overview.refresh')}
           </Button>

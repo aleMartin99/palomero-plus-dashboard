@@ -172,6 +172,7 @@ export default function UsersPage({ data, onChanged, canBan }: Props) {
         rowKey="id"
         columns={columns}
         dataSource={data.users}
+        scroll={{ x: 'max-content' }}
         pagination={{ pageSize: 10, showSizeChanger: false }}
       />
 
@@ -179,7 +180,7 @@ export default function UsersPage({ data, onChanged, canBan }: Props) {
         title={selected?.display_name}
         open={Boolean(selected)}
         onClose={() => setSelected(null)}
-        width={480}
+        width={typeof window !== 'undefined' && window.innerWidth < 480 ? '100%' : 480}
       >
         {selected && (
           <>

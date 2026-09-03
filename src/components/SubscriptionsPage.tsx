@@ -125,6 +125,7 @@ export default function SubscriptionsPage({ data }: Props) {
               rowKey="id"
               columns={columns}
               dataSource={subscriptions}
+              scroll={{ x: 'max-content' }}
               pagination={{
                 pageSize: 10,
                 showSizeChanger: false,
