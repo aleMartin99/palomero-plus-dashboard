@@ -63,6 +63,22 @@ hand. The old `ADMIN_DASHBOARD_KEY` secret is no longer used and can be deleted:
 - Ban / reactivate / contact-status changes are logged with the acting admin's email — check
   them with `supabase functions logs admin-dashboard-api`.
 
+## Language & theme
+
+- **Spanish is the default**; English is available from the globe menu in the header (and on
+  the login screen). The choice persists per browser in `localStorage`. Strings live in
+  `src/i18n/es.ts` and `src/i18n/en.ts` — `en.ts` is typed as `typeof es`, so a missing or
+  misspelled key is a **compile error**, not a silent fallback at runtime. Ant Design's own
+  strings (pagination, table filters, Popconfirm, empty states) switch too, via `ConfigProvider`.
+- **Colors come from the Flutter app.** `src/theme/tokens.ts` mirrors
+  `pigeon_track/lib/core/theme/app_colors.dart` — crimson `#B71C1C`, steel `#455A64`, the
+  `#F5F5F5` background, the 8/12/16 radii, DM Sans. The app defaults to its light theme, so
+  that's what the dashboard matches.
+- **Chart colors are deliberately not the raw brand pair.** The app's steel-grey secondary and
+  any grey fail the chroma floor for chart marks — they read as "no data" rather than as a
+  series. The three chart hues in `tokens.ts` were validated together (lightness band, chroma
+  floor, colour-blind separation, 3:1 contrast) with brand crimson kept as the lead hue.
+
 ## Local development
 
 ```bash
@@ -97,10 +113,30 @@ Two things that have bitten this dashboard before — worth knowing if numbers e
 
 ```
 src/
-  components/   OverviewPage, UsersPage, ContactsPage, SubscriptionsPage, LoginPage
+  components/   OverviewPage, UsersPage, ContactsPage, SubscriptionsPage, LoginPage,
+                SignupsChart, PlanMixChart
   hooks/        useAdminData — fetches everything via the Edge Function
+  i18n/         es.ts / en.ts strings + i18next setup (Spanish default)
   lib/          auth.tsx (session + role), roles.ts (permission matrix), api.ts,
                 supabaseClient.ts, helpers.ts (entitlement rules), demoData.ts
+  theme/        tokens.ts — app palette, radii, validated chart colors
   types/        shared TypeScript interfaces
+  ThemedApp.tsx ConfigProvider — theme tokens + Ant Design locale
 supabase/functions/admin-dashboard-api/index.ts   the backend — auth, roles, and all DB access
 ```
+
+## Why the Overview charts look the way they do
+
+Both charts were rebuilt because the originals misrepresented the data:
+
+- **Signups** was an all-time line on a *categorical* x-axis, so the four-month gap between
+  early signup days rendered the same width as a single day — a dead period read as steady
+  growth. One 390-signup launch spike also flattened every other day onto the baseline. It's
+  now a bounded window (default 30 days) with every day present including zeros, so spacing is
+  honest; "All time" still shows the real gap, and a Running-total toggle covers cumulative
+  growth without resorting to a second y-axis.
+- **Tier breakdown** was a pie that was ~94% one slice, with the two paid slivers' labels
+  colliding — the paid split, the number that actually matters, was the one thing you couldn't
+  read. A free/paid ratio is a single number, so it's now stated as text ("X of Y users are
+  Pro"), and the chart draws the comparison worth drawing: the paid plans against each other,
+  plus lapsed subscribers, as directly-labelled bars.

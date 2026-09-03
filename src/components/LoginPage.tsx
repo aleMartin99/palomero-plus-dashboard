@@ -1,12 +1,19 @@
 import { useState } from 'react';
-import { Card, Form, Input, Button, Typography, Alert, Layout } from 'antd';
-import { LockOutlined, MailOutlined } from '@ant-design/icons';
+import { Card, Form, Input, Button, Typography, Alert, Layout, Dropdown } from 'antd';
+import { LockOutlined, MailOutlined, GlobalOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../lib/auth';
-import { isSupabaseConfigured } from '../lib/supabaseClient';
+import { appColors } from '../theme/tokens';
 
 const { Title, Text, Paragraph } = Typography;
 
-export default function LoginPage() {
+interface Props {
+  /** Language picker, so the login screen can be read before signing in. */
+  languageMenu: React.ComponentProps<typeof Dropdown>['menu'];
+}
+
+export default function LoginPage({ languageMenu }: Props) {
+  const { t, i18n } = useTranslation();
   const { signIn, unauthorized, signOut, email } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,27 +24,35 @@ export default function LoginPage() {
     try {
       await signIn(values.email.trim(), values.password);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not sign in.');
+      setError(e instanceof Error ? e.message : t('login.failed'));
     } finally {
       setSubmitting(false);
     }
   }
 
-  // Valid Supabase credentials, but this email isn't on the dashboard allowlist.
+  const langButton = (
+    <div style={{ position: 'fixed', top: 16, right: 16 }}>
+      <Dropdown menu={languageMenu}>
+        <Button type="text" icon={<GlobalOutlined />}>
+          {i18n.language.toUpperCase()}
+        </Button>
+      </Dropdown>
+    </div>
+  );
+
   if (unauthorized) {
     return (
       <Layout style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
-        <Card style={{ maxWidth: 420, width: '100%' }}>
+        {langButton}
+        <Card style={{ maxWidth: 440, width: '100%' }}>
           <Title level={4} style={{ marginTop: 0 }}>
-            No dashboard access
+            {t('login.noAccessTitle')}
           </Title>
           <Paragraph type="secondary">
-            <Text code>{email}</Text> signed in successfully, but that address isn't on this
-            dashboard's allowlist. Ask the owner to add it to the{' '}
-            <Text code>ADMIN_ROLES</Text> secret.
+            <Text code>{email}</Text> — {t('login.noAccessBody')}
           </Paragraph>
           <Button block onClick={signOut}>
-            Sign out
+            {t('app.signOut')}
           </Button>
         </Card>
       </Layout>
@@ -46,48 +61,39 @@ export default function LoginPage() {
 
   return (
     <Layout style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
+      {langButton}
       <Card style={{ maxWidth: 400, width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <Title level={3} style={{ marginBottom: 0 }}>
-            PigeonTrack
+          <Title level={3} style={{ marginBottom: 0, color: appColors.primary }}>
+            {t('app.name')}
           </Title>
-          <Text type="secondary">Palomero Plus Admin</Text>
+          <Text type="secondary">{t('app.subtitle')}</Text>
         </div>
-
-        {!isSupabaseConfigured && (
-          <Alert
-            type="warning"
-            message="Environment Variables Missing"
-            description="Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your Vercel Project Settings."
-            showIcon
-            style={{ marginBottom: 16 }}
-          />
-        )}
 
         {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />}
 
         <Form layout="vertical" onFinish={handleSubmit} requiredMark={false} disabled={submitting}>
           <Form.Item
             name="email"
-            label="Email"
-            rules={[{ required: true, message: 'Enter your email' }]}
+            label={t('login.email')}
+            rules={[{ required: true, message: t('login.emailRequired') }]}
           >
             <Input prefix={<MailOutlined />} autoComplete="username" placeholder="you@example.com" />
           </Form.Item>
           <Form.Item
             name="password"
-            label="Password"
-            rules={[{ required: true, message: 'Enter your password' }]}
+            label={t('login.password')}
+            rules={[{ required: true, message: t('login.passwordRequired') }]}
           >
             <Input.Password prefix={<LockOutlined />} autoComplete="current-password" />
           </Form.Item>
           <Button type="primary" htmlType="submit" block loading={submitting}>
-            Sign in
+            {t('login.submit')}
           </Button>
         </Form>
 
         <Paragraph type="secondary" style={{ fontSize: 12, marginTop: 16, marginBottom: 0 }}>
-          Access is limited to allowlisted accounts.
+          {t('login.restricted')}
         </Paragraph>
       </Card>
     </Layout>

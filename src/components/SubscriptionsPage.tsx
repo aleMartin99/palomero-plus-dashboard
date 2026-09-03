@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Typography, Row, Col, Card, List, Tag, Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import { useTranslation } from 'react-i18next';
 import type { AdminDataBundle, Subscription } from '../types';
 import {
   formatDate,
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export default function SubscriptionsPage({ data }: Props) {
+  const { t } = useTranslation();
   const { users, plans, subscriptions } = data;
 
   // Same single pass the Overview uses, so the two pages can never disagree.
@@ -36,28 +38,28 @@ export default function SubscriptionsPage({ data }: Props) {
   }, [activePlanByUser]);
 
   const columns: ColumnsType<Subscription> = [
-    { title: 'User', dataIndex: 'user_email', render: (v) => <Text strong>{v}</Text> },
+    { title: t('subscriptions.colUser'), dataIndex: 'user_email', render: (v) => <Text strong>{v}</Text> },
     {
-      title: 'Plan Type',
+      title: t('subscriptions.colPlan'),
       render: (_, s) => planDisplayName(plans.find((p) => p.id === s.plan_id), s.plan_id),
       filters: plans.map((p) => ({ text: p.name, value: p.id })),
       onFilter: (value, record) => record.plan_id === value,
     },
     {
-      title: 'Status',
+      title: t('subscriptions.colStatus'),
       render: (_, s) => {
-        if (!isProPlan(s.plan_id)) return <Tag>Free</Tag>;
-        if (grantsProAccess(s)) return <Tag color="success">Pro active</Tag>;
+        if (!isProPlan(s.plan_id)) return <Tag>{t('subscriptions.free')}</Tag>;
+        if (grantsProAccess(s)) return <Tag color="success">{t('subscriptions.proActive')}</Tag>;
         // status still says 'active' but the paid period has elapsed — the app treats this
         // user as free, so surface it as a distinct state rather than a plain "expired".
-        if (s.status === 'active') return <Tag color="warning">Lapsed (stale status)</Tag>;
-        return <Tag color="error">Expired</Tag>;
+        if (s.status === 'active') return <Tag color="warning">{t('subscriptions.stale')}</Tag>;
+        return <Tag color="error">{t('subscriptions.expired')}</Tag>;
       },
       filters: [
-        { text: 'Pro active', value: 'pro_active' },
-        { text: 'Lapsed (stale status)', value: 'stale' },
-        { text: 'Expired', value: 'expired' },
-        { text: 'Free', value: 'free' },
+        { text: t('subscriptions.proActive'), value: 'pro_active' },
+        { text: t('subscriptions.stale'), value: 'stale' },
+        { text: t('subscriptions.expired'), value: 'expired' },
+        { text: t('subscriptions.free'), value: 'free' },
       ],
       onFilter: (value, s) => {
         if (value === 'free') return !isProPlan(s.plan_id);
@@ -68,7 +70,7 @@ export default function SubscriptionsPage({ data }: Props) {
       },
     },
     {
-      title: 'Active Until',
+      title: t('subscriptions.colUntil'),
       render: (_, s) => formatDate(s.end_date || s.expires_at),
       sorter: (a, b) =>
         (a.end_date || a.expires_at || '').localeCompare(b.end_date || b.expires_at || ''),
@@ -78,13 +80,13 @@ export default function SubscriptionsPage({ data }: Props) {
   return (
     <div>
       <Title level={3} style={{ marginTop: 0 }}>
-        Subscription Management
+        {t('subscriptions.title')}
       </Title>
-      <Text type="secondary">Audit system plans, pricing, and active subscriptions.</Text>
+      <Text type="secondary">{t('subscriptions.subtitle')}</Text>
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={8}>
-          <Card title="Available Plans">
+          <Card title={t('subscriptions.plans')}>
             <List
               dataSource={plans}
               renderItem={(p) => {
@@ -100,10 +102,14 @@ export default function SubscriptionsPage({ data }: Props) {
                       </Text>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      {p.is_active ? <Tag color="blue">Active</Tag> : <Tag>Inactive</Tag>}
+                      {p.is_active ? (
+                        <Tag color="blue">{t('subscriptions.planActive')}</Tag>
+                      ) : (
+                        <Tag>{t('subscriptions.planInactive')}</Tag>
+                      )}
                       <div>
                         <Text style={{ fontSize: 12 }}>
-                          {subCount} user{subCount !== 1 ? 's' : ''}
+                          {t('subscriptions.users', { count: subCount })}
                         </Text>
                       </div>
                     </div>
@@ -114,12 +120,16 @@ export default function SubscriptionsPage({ data }: Props) {
           </Card>
         </Col>
         <Col xs={24} lg={16}>
-          <Card title="Subscription Records">
+          <Card title={t('subscriptions.recordsTitle')}>
             <Table
               rowKey="id"
               columns={columns}
               dataSource={subscriptions}
-              pagination={{ pageSize: 10, showSizeChanger: false, showTotal: (t) => `${t} records` }}
+              pagination={{
+                pageSize: 10,
+                showSizeChanger: false,
+                showTotal: (total) => t('subscriptions.records', { count: total }),
+              }}
             />
           </Card>
         </Col>

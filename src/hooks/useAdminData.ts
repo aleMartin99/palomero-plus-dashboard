@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { App } from 'antd';
+import { useTranslation } from 'react-i18next';
 import type { AdminDataBundle } from '../types';
 import { fetchAllData } from '../lib/api';
 import { demoData } from '../lib/demoData';
@@ -20,6 +21,7 @@ const EMPTY: AdminDataBundle = {
  * every request would just bounce off the Edge Function with a 401/403.
  */
 export function useAdminData(enabled: boolean) {
+  const { t } = useTranslation();
   const { message } = App.useApp();
   const [data, setData] = useState<AdminDataBundle>(EMPTY);
   const [loading, setLoading] = useState(false);
@@ -38,11 +40,11 @@ export function useAdminData(enabled: boolean) {
       console.error('Failed to fetch admin data, showing demo data instead.', e);
       setConnection('error');
       setData(demoData);
-      message.error(e instanceof Error ? e.message : 'Failed to load dashboard data.');
+      message.error(e instanceof Error ? e.message : t('errors.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [enabled, message]);
+  }, [enabled, message, t]);
 
   useEffect(() => {
     if (enabled) refresh();

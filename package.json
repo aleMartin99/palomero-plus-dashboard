@@ -17,8 +17,10 @@
     "@supabase/supabase-js": "^2.112.3",
     "antd": "^6.6.1",
     "dayjs": "^1.11.23",
+    "i18next": "^26.4.1",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-i18next": "^17.0.13"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",

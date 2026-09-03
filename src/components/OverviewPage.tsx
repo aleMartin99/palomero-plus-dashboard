@@ -1,14 +1,16 @@
 import { useMemo } from 'react';
-import { Row, Col, Card, Statistic, Button, Typography } from 'antd';
+import { Row, Col, Card, Statistic, Button, Typography, Tooltip } from 'antd';
 import {
   UserOutlined,
   ReloadOutlined,
   EnvironmentOutlined,
   CrownOutlined,
 } from '@ant-design/icons';
-import { Line, Pie } from '@ant-design/charts';
+import { useTranslation } from 'react-i18next';
 import type { AdminDataBundle } from '../types';
-import { getUserActivePremiumSub, hasLapsedProSub, isProPlan, isVerified } from '../lib/helpers';
+import { hasLapsedProSub, isProUser, isVerified } from '../lib/helpers';
+import SignupsChart from './SignupsChart';
+import PlanMixChart from './PlanMixChart';
 
 const { Title, Text } = Typography;
 
@@ -19,68 +21,35 @@ interface Props {
 }
 
 export default function OverviewPage({ data, loading, onRefresh }: Props) {
-  const { users, pigeons, captures, subscriptions, plans } = data;
+  const { t } = useTranslation();
+  const { users, pigeons, captures, subscriptions } = data;
 
   const verifiedPercent = users.length
     ? Math.round((users.filter(isVerified).length / users.length) * 100)
     : 0;
   const avgPigeons = users.length ? (pigeons.length / users.length).toFixed(1) : '0';
 
-  // One pass: the plan each user is currently Pro on (undefined = free / lapsed).
-  const activePlanByUser = useMemo(() => {
-    const map = new Map<string, string>();
-    users.forEach((u) => {
-      const sub = getUserActivePremiumSub(subscriptions, u.id);
-      if (sub) map.set(u.id, sub.plan_id);
-    });
-    return map;
-  }, [users, subscriptions]);
-
-  const activeSubs = activePlanByUser.size;
-  const lapsedSubs = users.filter((u) => hasLapsedProSub(subscriptions, u.id)).length;
-
-  const registrationSeries = useMemo(() => {
-    const counts = new Map<string, number>();
-    users.forEach((u) => {
-      if (!u.created_at) return;
-      const day = u.created_at.substring(0, 10);
-      counts.set(day, (counts.get(day) || 0) + 1);
-    });
-    return [...counts.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, count]) => ({ date, count }));
-  }, [users]);
-
-  // Tier breakdown is derived from the real subscription_plans table rather than hardcoded
-  // tier names, so adding or renaming a plan in the DB flows through automatically.
-  const tierSeries = useMemo(() => {
-    const counts = new Map<string, number>();
-    activePlanByUser.forEach((planId) => counts.set(planId, (counts.get(planId) || 0) + 1));
-
-    const perPlan = plans
-      .filter((p) => isProPlan(p.id))
-      .map((p) => ({ type: p.name, value: counts.get(p.id) || 0 }));
-
-    // Everyone not currently on a Pro plan is Free — matches `isFree` in the app.
-    const freeCount = Math.max(0, users.length - activeSubs);
-    return [{ type: 'Free', value: freeCount }, ...perPlan].map((t) => ({
-      ...t,
-      type: `${t.type} (${t.value})`,
-    }));
-  }, [users.length, plans, activePlanByUser, activeSubs]);
+  const proCount = useMemo(
+    () => users.filter((u) => isProUser(subscriptions, u.id)).length,
+    [users, subscriptions],
+  );
+  const lapsedCount = useMemo(
+    () => users.filter((u) => hasLapsedProSub(subscriptions, u.id)).length,
+    [users, subscriptions],
+  );
 
   return (
     <div>
-      <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
+      <Row justify="space-between" align="middle" gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col>
           <Title level={3} style={{ margin: 0 }}>
-            System Performance
+            {t('overview.title')}
           </Title>
-          <Text type="secondary">Live indicators across registration, pigeons, and system health.</Text>
+          <Text type="secondary">{t('overview.subtitle')}</Text>
         </Col>
         <Col>
           <Button type="primary" icon={<ReloadOutlined />} loading={loading} onClick={onRefresh}>
-            Refresh stats
+            {t('overview.refresh')}
           </Button>
         </Col>
       </Row>
@@ -89,67 +58,63 @@ export default function OverviewPage({ data, loading, onRefresh }: Props) {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Total Users"
+              title={t('overview.totalUsers')}
               value={users.length}
               prefix={<UserOutlined />}
-              suffix={<Text type="success" style={{ fontSize: 12 }}>{`${verifiedPercent}% verified`}</Text>}
+              suffix={
+                <Text type="success" style={{ fontSize: 12 }}>
+                  {t('overview.verified', { percent: verifiedPercent })}
+                </Text>
+              }
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Registered Pigeons"
+              title={t('overview.pigeons')}
               value={pigeons.length}
-              suffix={<Text type="secondary" style={{ fontSize: 12 }}>{`${avgPigeons} / user`}</Text>}
+              suffix={
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {t('overview.perUser', { value: avgPigeons })}
+                </Text>
+              }
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
-            <Statistic title="Total Captures" value={captures.length} prefix={<EnvironmentOutlined />} />
+            <Statistic
+              title={t('overview.captures')}
+              value={captures.length}
+              prefix={<EnvironmentOutlined />}
+            />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Pro Subscribers"
-              value={activeSubs}
+              title={t('overview.proSubscribers')}
+              value={proCount}
               prefix={<CrownOutlined />}
-              suffix={<Text type="secondary" style={{ fontSize: 12 }}>{`${lapsedSubs} lapsed`}</Text>}
+              suffix={
+                <Tooltip title={t('overview.lapsedHint')}>
+                  <Text type="secondary" style={{ fontSize: 12, cursor: 'help' }}>
+                    {t('overview.lapsed', { count: lapsedCount })}
+                  </Text>
+                </Tooltip>
+              }
             />
           </Card>
         </Col>
       </Row>
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col xs={24} lg={12}>
-          <Card title="User Registrations & Growth">
-            <div style={{ height: 260 }}>
-              <Line
-                data={registrationSeries}
-                xField="date"
-                yField="count"
-                height={260}
-                point={{ size: 3 }}
-                smooth
-              />
-            </div>
-          </Card>
+        <Col xs={24} lg={14}>
+          <SignupsChart users={users} />
         </Col>
-        <Col xs={24} lg={12}>
-          <Card title="Subscription Tier Breakdown">
-            <div style={{ height: 260 }}>
-              <Pie
-                data={tierSeries}
-                angleField="value"
-                colorField="type"
-                height={260}
-                label={{ text: 'value', style: { fontWeight: 'bold' } }}
-                legend={{ color: { position: 'bottom' } }}
-              />
-            </div>
-          </Card>
+        <Col xs={24} lg={10}>
+          <PlanMixChart data={data} />
         </Col>
       </Row>
     </div>
