@@ -3,6 +3,7 @@ export interface AdminUser {
   email: string;
   username: string;
   display_name: string;
+  loft_name?: string;
   is_public: boolean;
   account_status: 'active' | 'inactive' | 'deleted' | string;
   email_confirmed_at: string | null;

@@ -23,12 +23,14 @@ import {
   LogoutOutlined,
   GlobalOutlined,
   MenuOutlined,
+  GiftOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import OverviewPage from './components/OverviewPage';
 import UsersPage from './components/UsersPage';
 import ContactsPage from './components/ContactsPage';
 import SubscriptionsPage from './components/SubscriptionsPage';
+import GiveawaysPage from './components/GiveawaysPage';
 import LoginPage from './components/LoginPage';
 import { useAdminData } from './hooks/useAdminData';
 import { useAuth } from './lib/auth';
@@ -43,11 +45,12 @@ const { useBreakpoint } = Grid;
 const MENU_ICONS: Record<TabKey, ReactNode> = {
   overview: <PieChartOutlined />,
   users: <TeamOutlined />,
+  giveaways: <GiftOutlined />,
   contacts: <MailOutlined />,
   subscriptions: <CreditCardOutlined />,
 };
 
-const TAB_ORDER: TabKey[] = ['overview', 'users', 'contacts', 'subscriptions'];
+const TAB_ORDER: TabKey[] = ['overview', 'users', 'giveaways', 'contacts', 'subscriptions'];
 
 export default function App() {
   const { t, i18n } = useTranslation();
@@ -242,6 +245,9 @@ export default function App() {
           )}
           {tab === 'users' && allowedTabs.includes('users') && (
             <UsersPage data={data} onChanged={refresh} canBan={permissions.canBanUsers} />
+          )}
+          {tab === 'giveaways' && allowedTabs.includes('giveaways') && (
+            <GiveawaysPage data={data} loading={loading} />
           )}
           {tab === 'contacts' && allowedTabs.includes('contacts') && (
             <ContactsPage data={data} onChanged={refresh} canManage={permissions.canManageContacts} />

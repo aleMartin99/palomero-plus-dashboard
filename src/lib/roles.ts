@@ -9,7 +9,7 @@
 
 export type Role = 'owner' | 'viewer';
 
-export type TabKey = 'overview' | 'users' | 'contacts' | 'subscriptions';
+export type TabKey = 'overview' | 'users' | 'giveaways' | 'contacts' | 'subscriptions';
 
 export interface Permissions {
   /** Tabs this role may open. */
@@ -22,12 +22,12 @@ export interface Permissions {
 
 export const PERMISSIONS: Record<Role, Permissions> = {
   owner: {
-    tabs: ['overview', 'users', 'contacts', 'subscriptions'],
+    tabs: ['overview', 'users', 'giveaways', 'contacts', 'subscriptions'],
     canBanUsers: true,
     canManageContacts: true,
   },
   viewer: {
-    tabs: ['overview', 'users'],
+    tabs: ['overview', 'users', 'giveaways'],
     canBanUsers: false,
     canManageContacts: false,
   },
