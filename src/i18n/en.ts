@@ -49,6 +49,7 @@ export const en: typeof es = {
     captures: 'Total captures',
     proSubscribers: 'Pro subscribers',
     lapsed: '{{count}} pending sync',
+    totalPro: '{{count}} total',
     signupsTitle: 'User signups',
     signupsNew: 'New per day',
     signupsCumulative: 'Running total',

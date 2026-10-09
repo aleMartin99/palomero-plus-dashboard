@@ -46,6 +46,10 @@ export default function OverviewPage({ data, loading, onRefresh }: Props) {
     () => users.filter((u) => hasLapsedProSub(subscriptions, u.id)).length,
     [users, subscriptions],
   );
+  const totalProCount = useMemo(
+    () => proCount + lapsedCount,
+    [proCount, lapsedCount],
+  );
 
   return (
     <div>
@@ -64,73 +68,127 @@ export default function OverviewPage({ data, loading, onRefresh }: Props) {
       </Row>
 
       <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
+        <Col xs={24} sm={12} lg={6} style={{ display: 'flex' }}>
+          <Card
+            style={{ width: '100%', height: '100%' }}
+            styles={{
+              body: {
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              },
+            }}
+          >
             <Statistic
               title={t('overview.totalUsers')}
               value={verifiedUsersCount}
               prefix={<UserOutlined />}
-              suffix={
-                <span
-                  style={{
-                    fontSize: 12,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: 4,
-                    marginLeft: 4,
-                  }}
-                >
-                  <Text type="success" style={{ fontSize: 12 }}>
-                    {t('overview.verified', { percent: verifiedPercent })}
-                  </Text>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    ·
-                  </Text>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {t('overview.unverified', { count: unverifiedCount })}
-                  </Text>
-                </span>
-              }
             />
+            <div
+              style={{
+                marginTop: 8,
+                fontSize: 12,
+                display: 'flex',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 4,
+              }}
+            >
+              <Text type="success" style={{ fontSize: 12 }}>
+                {t('overview.verified', { percent: verifiedPercent })}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                ·
+              </Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {t('overview.unverified', { count: unverifiedCount })}
+              </Text>
+            </div>
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
+        <Col xs={24} sm={12} lg={6} style={{ display: 'flex' }}>
+          <Card
+            style={{ width: '100%', height: '100%' }}
+            styles={{
+              body: {
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              },
+            }}
+          >
             <Statistic
               title={t('overview.pigeons')}
               value={pigeons.length}
-              suffix={
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {t('overview.perUser', { value: avgPigeons })}
-                </Text>
-              }
             />
+            <div style={{ marginTop: 8, fontSize: 12 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {t('overview.perUser', { value: avgPigeons })}
+              </Text>
+            </div>
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
+        <Col xs={24} sm={12} lg={6} style={{ display: 'flex' }}>
+          <Card
+            style={{ width: '100%', height: '100%' }}
+            styles={{
+              body: {
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              },
+            }}
+          >
             <Statistic
               title={t('overview.captures')}
               value={captures.length}
               prefix={<EnvironmentOutlined />}
             />
+            <div style={{ marginTop: 8, fontSize: 12, minHeight: 18 }} />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
+        <Col xs={24} sm={12} lg={6} style={{ display: 'flex' }}>
+          <Card
+            style={{ width: '100%', height: '100%' }}
+            styles={{
+              body: {
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              },
+            }}
+          >
             <Statistic
               title={t('overview.proSubscribers')}
               value={proCount}
               prefix={<CrownOutlined />}
-              suffix={
-                <Tooltip title={t('overview.lapsedHint')}>
-                  <Text type="secondary" style={{ fontSize: 12, cursor: 'help' }}>
-                    {t('overview.lapsed', { count: lapsedCount })}
-                  </Text>
-                </Tooltip>
-              }
             />
+            <div
+              style={{
+                marginTop: 8,
+                fontSize: 12,
+                display: 'flex',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 4,
+              }}
+            >
+              <Tooltip title={t('overview.lapsedHint')}>
+                <Text type="secondary" style={{ fontSize: 12, cursor: 'help' }}>
+                  {t('overview.lapsed', { count: lapsedCount })}
+                </Text>
+              </Tooltip>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                ·
+              </Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {t('overview.totalPro', { count: totalProCount })}
+              </Text>
+            </div>
           </Card>
         </Col>
       </Row>
