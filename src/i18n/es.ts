@@ -47,6 +47,7 @@ export const es = {
     proSubscribers: 'Suscriptores Pro',
     lapsed: '{{count}} por sincronizar',
     totalPro: '{{count}} en total',
+    total: '{{count}} en total',
     signupsTitle: 'Altas de usuarios',
     signupsNew: 'Nuevos por día',
     signupsCumulative: 'Total acumulado',

@@ -84,6 +84,11 @@ export default function OverviewPage({ data, loading, onRefresh }: Props) {
               title={t('overview.totalUsers')}
               value={verifiedUsersCount}
               prefix={<UserOutlined />}
+              suffix={
+                <Text type="success" style={{ fontSize: 12, marginLeft: 4 }}>
+                  {t('overview.verified', { percent: verifiedPercent })}
+                </Text>
+              }
             />
             <div
               style={{
@@ -95,14 +100,14 @@ export default function OverviewPage({ data, loading, onRefresh }: Props) {
                 gap: 4,
               }}
             >
-              <Text type="success" style={{ fontSize: 12 }}>
-                {t('overview.verified', { percent: verifiedPercent })}
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {t('overview.unverified', { count: unverifiedCount })}
               </Text>
               <Text type="secondary" style={{ fontSize: 12 }}>
                 ·
               </Text>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                {t('overview.unverified', { count: unverifiedCount })}
+                {t('overview.total', { count: validUsers.length.toLocaleString() })}
               </Text>
             </div>
           </Card>
@@ -186,7 +191,7 @@ export default function OverviewPage({ data, loading, onRefresh }: Props) {
                 ·
               </Text>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                {t('overview.totalPro', { count: totalProCount })}
+                {t('overview.total', { count: totalProCount })}
               </Text>
             </div>
           </Card>
