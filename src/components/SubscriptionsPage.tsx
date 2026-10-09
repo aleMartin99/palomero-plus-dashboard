@@ -21,15 +21,20 @@ export default function SubscriptionsPage({ data }: Props) {
   const { t } = useTranslation();
   const { users, plans, subscriptions } = data;
 
+  const validUsers = useMemo(
+    () => users.filter((u) => u.account_status !== 'deleted'),
+    [users],
+  );
+
   // Same single pass the Overview uses, so the two pages can never disagree.
   const activePlanByUser = useMemo(() => {
     const map = new Map<string, string>();
-    users.forEach((u) => {
+    validUsers.forEach((u) => {
       const sub = getUserActivePremiumSub(subscriptions, u.id);
       if (sub) map.set(u.id, sub.plan_id);
     });
     return map;
-  }, [users, subscriptions]);
+  }, [validUsers, subscriptions]);
 
   const planCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -90,9 +95,9 @@ export default function SubscriptionsPage({ data }: Props) {
             <List
               dataSource={plans}
               renderItem={(p) => {
-                const subCount = isProPlan(p.id)
-                  ? planCounts.get(p.id) || 0
-                  : Math.max(0, users.length - activePlanByUser.size);
+                  const subCount = isProPlan(p.id)
+                    ? planCounts.get(p.id) || 0
+                    : Math.max(0, validUsers.length - activePlanByUser.size);
                 return (
                   <List.Item>
                     <div>

@@ -39,12 +39,12 @@ export default function OverviewPage({ data, loading, onRefresh }: Props) {
   const avgPigeons = validUsers.length ? (pigeons.length / validUsers.length).toFixed(1) : '0';
 
   const proCount = useMemo(
-    () => users.filter((u) => isProUser(subscriptions, u.id)).length,
-    [users, subscriptions],
+    () => validUsers.filter((u) => isProUser(subscriptions, u.id)).length,
+    [validUsers, subscriptions],
   );
   const lapsedCount = useMemo(
-    () => users.filter((u) => hasLapsedProSub(subscriptions, u.id)).length,
-    [users, subscriptions],
+    () => validUsers.filter((u) => hasLapsedProSub(subscriptions, u.id)).length,
+    [validUsers, subscriptions],
   );
   const totalProCount = useMemo(
     () => proCount + lapsedCount,

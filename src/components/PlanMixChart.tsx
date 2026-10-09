@@ -30,9 +30,14 @@ export default function PlanMixChart({ data }: Props) {
   const { t } = useTranslation();
   const { users, plans, subscriptions } = data;
 
+  const validUsers = useMemo(
+    () => users.filter((u) => u.account_status !== 'deleted'),
+    [users],
+  );
+
   const { rows, proTotal } = useMemo(() => {
     const activePlanByUser = new Map<string, string>();
-    users.forEach((u) => {
+    validUsers.forEach((u) => {
       const sub = getUserActivePremiumSub(subscriptions, u.id);
       if (sub) activePlanByUser.set(u.id, sub.plan_id);
     });
@@ -52,7 +57,7 @@ export default function PlanMixChart({ data }: Props) {
         color: hues[i % hues.length],
       }));
 
-    const lapsed = users.filter((u) => hasLapsedProSub(subscriptions, u.id)).length;
+    const lapsed = validUsers.filter((u) => hasLapsedProSub(subscriptions, u.id)).length;
     if (lapsed > 0) {
       paidRows.push({
         key: 'lapsed',
@@ -64,10 +69,10 @@ export default function PlanMixChart({ data }: Props) {
     }
 
     return { rows: paidRows, proTotal: activePlanByUser.size };
-  }, [users, plans, subscriptions, t]);
+  }, [validUsers, plans, subscriptions, t]);
 
   const max = Math.max(...rows.map((r) => r.value), 1);
-  const conversion = users.length ? ((proTotal / users.length) * 100).toFixed(1) : '0';
+  const conversion = validUsers.length ? ((proTotal / validUsers.length) * 100).toFixed(1) : '0';
 
   return (
     <Card title={t('overview.planMixTitle')}>
@@ -75,7 +80,7 @@ export default function PlanMixChart({ data }: Props) {
         <Text type="secondary" style={{ fontSize: 13 }}>
           {t('overview.conversion', {
             pro: proTotal.toLocaleString(),
-            total: users.length.toLocaleString(),
+            total: validUsers.length.toLocaleString(),
             percent: conversion,
           })}
         </Text>
