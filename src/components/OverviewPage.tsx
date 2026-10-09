@@ -24,10 +24,19 @@ export default function OverviewPage({ data, loading, onRefresh }: Props) {
   const { t } = useTranslation();
   const { users, pigeons, captures, subscriptions } = data;
 
-  const verifiedPercent = users.length
-    ? Math.round((users.filter(isVerified).length / users.length) * 100)
+  const validUsers = useMemo(
+    () => users.filter((u) => u.account_status !== 'deleted'),
+    [users],
+  );
+  const verifiedUsersCount = useMemo(
+    () => validUsers.filter(isVerified).length,
+    [validUsers],
+  );
+  const unverifiedCount = validUsers.length - verifiedUsersCount;
+  const verifiedPercent = validUsers.length
+    ? Math.round((verifiedUsersCount / validUsers.length) * 100)
     : 0;
-  const avgPigeons = users.length ? (pigeons.length / users.length).toFixed(1) : '0';
+  const avgPigeons = validUsers.length ? (pigeons.length / validUsers.length).toFixed(1) : '0';
 
   const proCount = useMemo(
     () => users.filter((u) => isProUser(subscriptions, u.id)).length,
@@ -59,12 +68,29 @@ export default function OverviewPage({ data, loading, onRefresh }: Props) {
           <Card>
             <Statistic
               title={t('overview.totalUsers')}
-              value={users.length}
+              value={verifiedUsersCount}
               prefix={<UserOutlined />}
               suffix={
-                <Text type="success" style={{ fontSize: 12 }}>
-                  {t('overview.verified', { percent: verifiedPercent })}
-                </Text>
+                <span
+                  style={{
+                    fontSize: 12,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 4,
+                    marginLeft: 4,
+                  }}
+                >
+                  <Text type="success" style={{ fontSize: 12 }}>
+                    {t('overview.verified', { percent: verifiedPercent })}
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    ·
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {t('overview.unverified', { count: unverifiedCount })}
+                  </Text>
+                </span>
               }
             />
           </Card>

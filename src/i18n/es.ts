@@ -40,6 +40,7 @@ export const es = {
     refresh: 'Actualizar',
     totalUsers: 'Usuarios totales',
     verified: '{{percent}}% verificados',
+    unverified: '{{count}} sin verificar',
     pigeons: 'Palomas registradas',
     perUser: '{{value}} por usuario',
     captures: 'Capturas totales',

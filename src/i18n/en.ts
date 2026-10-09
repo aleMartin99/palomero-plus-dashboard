@@ -43,6 +43,7 @@ export const en: typeof es = {
     refresh: 'Refresh',
     totalUsers: 'Total users',
     verified: '{{percent}}% verified',
+    unverified: '{{count}} unverified',
     pigeons: 'Registered pigeons',
     perUser: '{{value}} per user',
     captures: 'Total captures',
