@@ -28,7 +28,7 @@ function project(rows: FeatureUsageRow[], period: Period): RankedRow[] {
       return { feature: r.feature, opens, users, share: total > 0 ? users / total : 0 };
     })
     .filter((r) => r.opens > 0)
-    .sort((a, b) => b.opens - a.opens)
+    .sort((a, b) => b.opens - a.opens || b.users - a.users || a.feature.localeCompare(b.feature))
     .map((r, i) => ({ ...r, key: r.feature, rank: i + 1 }));
 }
 
