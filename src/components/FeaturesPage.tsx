@@ -2,42 +2,41 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Card, Empty, Segmented, Space, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useTranslation } from 'react-i18next';
-import { fetchFeatureUsage } from '../lib/api';
-import type { FeatureUsageRow } from '../types';
+import { fetchFeatureUsage, fetchFeatureUsageByUser } from '../lib/api';
+import { projectSummary, rankByGroup } from '../lib/featureRanking';
+import type { Group, Period, RankedRow } from '../lib/featureRanking';
+import { isProUser } from '../lib/helpers';
+import type { AdminDataBundle, FeatureUsageRow, FeatureUsageUserRow } from '../types';
 
 const { Title, Text } = Typography;
 
-type Period = '7d' | '30d' | 'all';
-
-interface RankedRow {
-  key: string;
-  rank: number;
-  feature: string;
-  opens: number;
-  users: number;
-  share: number; // 0..1 of active users in the period
+interface Props {
+  data: AdminDataBundle;
+  /** Owner only: show the All / Pro / Free selector (needs per-user data). */
+  canSplitByPlan: boolean;
 }
 
-function project(rows: FeatureUsageRow[], period: Period): RankedRow[] {
-  return rows
-    .map((r) => {
-      const opens = period === '7d' ? r.opens_7d : period === '30d' ? r.opens_30d : r.opens_all;
-      const users = period === '7d' ? r.users_7d : period === '30d' ? r.users_30d : r.users_all;
-      const total =
-        period === '7d' ? r.total_users_7d : period === '30d' ? r.total_users_30d : r.total_users_all;
-      return { feature: r.feature, opens, users, share: total > 0 ? users / total : 0 };
-    })
-    .filter((r) => r.opens > 0)
-    .sort((a, b) => b.opens - a.opens || b.users - a.users || a.feature.localeCompare(b.feature))
-    .map((r, i) => ({ ...r, key: r.feature, rank: i + 1 }));
-}
-
-export default function FeaturesPage() {
+export default function FeaturesPage({ data, canSplitByPlan }: Props) {
   const { t } = useTranslation();
   const [rows, setRows] = useState<FeatureUsageRow[]>([]);
+  const [userRows, setUserRows] = useState<FeatureUsageUserRow[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userLoading, setUserLoading] = useState(false);
   const [error, setError] = useState(false);
   const [period, setPeriod] = useState<Period>('30d');
+  const [group, setGroup] = useState<Group>('all');
+
+  const loadUserRows = useCallback(async () => {
+    setUserLoading(true);
+    setError(false);
+    try {
+      setUserRows(await fetchFeatureUsageByUser());
+    } catch {
+      setError(true);
+    } finally {
+      setUserLoading(false);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -49,7 +48,8 @@ export default function FeaturesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+    if (group !== 'all') await loadUserRows();
+  }, [group, loadUserRows]);
 
   // Initial fetch: loading starts true, so no synchronous setState inside the effect.
   useEffect(() => {
@@ -69,7 +69,20 @@ export default function FeaturesPage() {
     };
   }, []);
 
-  const ranked = useMemo(() => project(rows, period), [rows, period]);
+  const onGroupChange = (g: Group) => {
+    setGroup(g);
+    if (g !== 'all' && userRows === null) void loadUserRows();
+  };
+
+  const proIds = useMemo(
+    () => new Set(data.users.filter((u) => isProUser(data.subscriptions, u.id)).map((u) => u.id)),
+    [data.users, data.subscriptions],
+  );
+
+  const ranked = useMemo<RankedRow[]>(() => {
+    if (group === 'all') return projectSummary(rows, period);
+    return userRows ? rankByGroup(userRows, proIds, group, period) : [];
+  }, [group, rows, userRows, proIds, period]);
 
   const columns: ColumnsType<RankedRow> = [
     { title: t('features.colRank'), dataIndex: 'rank', width: 64 },
@@ -86,16 +99,24 @@ export default function FeaturesPage() {
       align: 'right',
       render: (s: number) => `${Math.round(s * 100)}%`,
     },
+    {
+      title: t('features.colPerUser'),
+      dataIndex: 'perUser',
+      align: 'right',
+      render: (n: number) => n.toFixed(1),
+    },
   ];
 
+  const isLoading = loading || (group !== 'all' && userLoading);
+
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <div>
         <Title level={3} style={{ marginBottom: 4 }}>{t('features.title')}</Title>
         <Text type="secondary">{t('features.subtitle')}</Text>
       </div>
 
-      <Card style={{ borderRadius: 16 }} bordered={false}>
+      <Card style={{ borderRadius: 16 }} variant="borderless">
         <Space style={{ marginBottom: 16 }} wrap>
           <Segmented<Period>
             value={period}
@@ -106,18 +127,29 @@ export default function FeaturesPage() {
               { label: t('features.periodAll'), value: 'all' },
             ]}
           />
-          <Button onClick={() => void load()} loading={loading}>{t('features.refresh')}</Button>
+          {canSplitByPlan ? (
+            <Segmented<Group>
+              value={group}
+              onChange={onGroupChange}
+              options={[
+                { label: t('features.groupAll'), value: 'all' },
+                { label: t('features.groupPro'), value: 'pro' },
+                { label: t('features.groupFree'), value: 'free' },
+              ]}
+            />
+          ) : null}
+          <Button onClick={() => void load()} loading={isLoading}>{t('features.refresh')}</Button>
         </Space>
 
         {error ? (
           <Alert type="error" showIcon message={t('features.loadError')} />
-        ) : ranked.length === 0 && !loading ? (
+        ) : ranked.length === 0 && !isLoading ? (
           <Empty description={t('features.empty')} />
         ) : (
           <Table<RankedRow>
             size="middle"
             rowKey="key"
-            loading={loading}
+            loading={isLoading}
             columns={columns}
             dataSource={ranked}
             pagination={false}

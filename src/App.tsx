@@ -252,7 +252,7 @@ export default function App() {
           {tab === 'users' && allowedTabs.includes('users') && (
             <UsersPage data={data} onChanged={refresh} canBan={permissions.canBanUsers} />
           )}
-          {tab === 'features' && allowedTabs.includes('features') && <FeaturesPage />}
+          {tab === 'features' && allowedTabs.includes('features') && <FeaturesPage data={data} canSplitByPlan={permissions.canSeeUserData} />}
           {tab === 'giveaways' && allowedTabs.includes('giveaways') && (
             <GiveawaysPage data={data} loading={loading} />
           )}
