@@ -114,6 +114,8 @@ Deno.serve(async (req: Request) => {
         for (let from = 0; ; from += PAGE_SIZE) {
           const { data, error } = await supabaseAdmin
             .rpc('feature_usage_by_user')
+            .order('user_id', { ascending: true })
+            .order('feature', { ascending: true })
             .range(from, from + PAGE_SIZE - 1);
           if (error) throw error;
           const batch = data ?? [];

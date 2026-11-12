@@ -214,7 +214,7 @@ export const es = {
     copyContact: 'Copiar contacto',
     contactNone: 'Sin contacto',
     empty: 'No hay usuarios que cumplan las señales elegidas.',
-    loadError: 'No se pudieron cargar los datos de uso.',
+    loadError: 'No se pudieron cargar los datos de uso; se muestran solo las señales de palomas y planes.',
     usageNote: 'Las señales de uso se completan a medida que los usuarios actualizan la app.',
     reasons: {
       at_limit: 'En el límite de 3 palomas',

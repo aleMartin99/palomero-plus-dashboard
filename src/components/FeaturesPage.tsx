@@ -22,17 +22,18 @@ export default function FeaturesPage({ data, canSplitByPlan }: Props) {
   const [userRows, setUserRows] = useState<FeatureUsageUserRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [userLoading, setUserLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [summaryError, setSummaryError] = useState(false);
+  const [userError, setUserError] = useState(false);
   const [period, setPeriod] = useState<Period>('30d');
   const [group, setGroup] = useState<Group>('all');
 
   const loadUserRows = useCallback(async () => {
     setUserLoading(true);
-    setError(false);
+    setUserError(false);
     try {
       setUserRows(await fetchFeatureUsageByUser());
     } catch {
-      setError(true);
+      setUserError(true);
     } finally {
       setUserLoading(false);
     }
@@ -40,11 +41,11 @@ export default function FeaturesPage({ data, canSplitByPlan }: Props) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError(false);
+    setSummaryError(false);
     try {
       setRows(await fetchFeatureUsage());
     } catch {
-      setError(true);
+      setSummaryError(true);
     } finally {
       setLoading(false);
     }
@@ -59,7 +60,7 @@ export default function FeaturesPage({ data, canSplitByPlan }: Props) {
         if (!cancelled) setRows(r);
       })
       .catch(() => {
-        if (!cancelled) setError(true);
+        if (!cancelled) setSummaryError(true);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -71,7 +72,7 @@ export default function FeaturesPage({ data, canSplitByPlan }: Props) {
 
   const onGroupChange = (g: Group) => {
     setGroup(g);
-    if (g !== 'all' && userRows === null) void loadUserRows();
+    if (g !== 'all' && (userRows === null || userError)) void loadUserRows();
   };
 
   const proIds = useMemo(
@@ -83,6 +84,8 @@ export default function FeaturesPage({ data, canSplitByPlan }: Props) {
     if (group === 'all') return projectSummary(rows, period);
     return userRows ? rankByGroup(userRows, proIds, group, period) : [];
   }, [group, rows, userRows, proIds, period]);
+
+  const showError = group === 'all' ? summaryError : userError;
 
   const columns: ColumnsType<RankedRow> = [
     { title: t('features.colRank'), dataIndex: 'rank', width: 64 },
@@ -141,7 +144,7 @@ export default function FeaturesPage({ data, canSplitByPlan }: Props) {
           <Button onClick={() => void load()} loading={isLoading}>{t('features.refresh')}</Button>
         </Space>
 
-        {error ? (
+        {showError ? (
           <Alert type="error" showIcon message={t('features.loadError')} />
         ) : ranked.length === 0 && !isLoading ? (
           <Empty description={t('features.empty')} />

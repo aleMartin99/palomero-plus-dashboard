@@ -216,7 +216,7 @@ export const en: typeof es = {
     copyContact: 'Copy contact',
     contactNone: 'No contact',
     empty: 'No users match the selected signals.',
-    loadError: 'Could not load usage data.',
+    loadError: 'Could not load usage data; showing pigeon and plan signals only.',
     usageNote: 'Usage signals fill in as users update the app.',
     reasons: {
       at_limit: 'At the 3-pigeon limit',

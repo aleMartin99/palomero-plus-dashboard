@@ -230,8 +230,9 @@ export default function LeadsPage({ data, loading: bundleLoading }: Props) {
         </Space>
 
         {error ? (
-          <Alert type="error" showIcon message={t('leads.loadError')} />
-        ) : visible.length === 0 && !isLoading ? (
+          <Alert type="warning" showIcon message={t('leads.loadError')} style={{ marginBottom: 16 }} />
+        ) : null}
+        {visible.length === 0 && !isLoading ? (
           <Empty description={t('leads.empty')} />
         ) : (
           <Table<Lead>
