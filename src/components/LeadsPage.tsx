@@ -99,11 +99,13 @@ export default function LeadsPage({ data, loading: bundleLoading }: Props) {
     );
   }, [leads, selected, query]);
 
+  const rankById = useMemo(() => new Map(visible.map((l, i) => [l.userId, i + 1])), [visible]);
+
   const copy = (text: string) => {
     navigator.clipboard
       .writeText(text)
       .then(() => message.success(t('leads.copied')))
-      .catch(() => message.error(text));
+      .catch(() => message.error(t('leads.copyFailed')));
   };
 
   const toggle = (r: LeadReason, on: boolean) =>
@@ -113,7 +115,7 @@ export default function LeadsPage({ data, loading: bundleLoading }: Props) {
     l.plan === 'free' ? t('leads.planFree') : l.plan === 'churning' ? t('leads.planChurning') : t('leads.planLapsed');
 
   const columns: ColumnsType<Lead> = [
-    { title: t('leads.colRank'), width: 56, render: (_: unknown, __: Lead, i: number) => i + 1 },
+    { title: t('leads.colRank'), width: 56, render: (_: unknown, l: Lead) => rankById.get(l.userId) },
     {
       title: t('leads.colUser'),
       render: (_: unknown, l: Lead) => (
@@ -168,8 +170,8 @@ export default function LeadsPage({ data, loading: bundleLoading }: Props) {
         return (
           <Space orientation="vertical" size={0}>
             <span>
-              <a href={`mailto:${l.email}`}>{l.email}</a>{' '}
-              <Button size="small" type="text" icon={<CopyOutlined />} aria-label={t('leads.copy')} onClick={() => copy(l.email)} />
+              <a href={contactLink('email', l.email) ?? undefined}>{l.email}</a>{' '}
+              <Button size="small" type="text" icon={<CopyOutlined />} aria-label={t('leads.copyEmail')} onClick={() => copy(l.email)} />
             </span>
             {l.contactValue ? (
               <span>
@@ -178,7 +180,7 @@ export default function LeadsPage({ data, loading: bundleLoading }: Props) {
                 ) : (
                   <Text>{l.contactType}: {l.contactValue}</Text>
                 )}{' '}
-                <Button size="small" type="text" icon={<CopyOutlined />} aria-label={t('leads.copy')} onClick={() => copy(l.contactValue ?? '')} />
+                <Button size="small" type="text" icon={<CopyOutlined />} aria-label={t('leads.copyContact')} onClick={() => copy(l.contactValue ?? '')} />
               </span>
             ) : (
               <Text type="secondary" style={{ fontSize: 12 }}>{t('leads.contactNone')}</Text>

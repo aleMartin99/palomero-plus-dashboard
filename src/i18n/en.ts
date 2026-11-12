@@ -193,7 +193,7 @@ export const en: typeof es = {
   leads: {
     title: 'Pro leads',
     subtitle: 'Users most likely to upgrade to Pro, and Pro users about to leave. Computed live from app data.',
-    searchPlaceholder: 'Search by name or email',
+    searchPlaceholder: 'Search by name, email or loft',
     filtersLabel: 'Signals (all selected must match)',
     refresh: 'Refresh',
     colRank: '#',
@@ -211,6 +211,9 @@ export const en: typeof es = {
     planLapsed: 'Pro lapsed',
     copy: 'Copy',
     copied: 'Copied',
+    copyFailed: 'Could not copy',
+    copyEmail: 'Copy email',
+    copyContact: 'Copy contact',
     contactNone: 'No contact',
     empty: 'No users match the selected signals.',
     loadError: 'Could not load usage data.',

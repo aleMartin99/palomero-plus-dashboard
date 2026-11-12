@@ -191,7 +191,7 @@ export const es = {
     title: 'Oportunidades Pro',
     subtitle:
       'Usuarios con más probabilidad de pasar a Pro y usuarios Pro a punto de irse. Se calcula en vivo con los datos de la app.',
-    searchPlaceholder: 'Buscar por nombre o correo',
+    searchPlaceholder: 'Buscar por nombre, correo o palomar',
     filtersLabel: 'Señales (deben cumplirse todas)',
     refresh: 'Actualizar',
     colRank: '#',
@@ -209,6 +209,9 @@ export const es = {
     planLapsed: 'Pro vencido',
     copy: 'Copiar',
     copied: 'Copiado',
+    copyFailed: 'No se pudo copiar',
+    copyEmail: 'Copiar correo',
+    copyContact: 'Copiar contacto',
     contactNone: 'Sin contacto',
     empty: 'No hay usuarios que cumplan las señales elegidas.',
     loadError: 'No se pudieron cargar los datos de uso.',
