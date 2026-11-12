@@ -19,7 +19,7 @@ export function isProPlan(planId?: string | null): boolean {
  * exactly 00:00:00 is a date-only value and is treated as the END of that day (23:59:59.999),
  * so a subscription doesn't read as expired for the whole final day it's still valid.
  */
-function effectiveEndDate(s: Subscription): Date | null {
+export function effectiveEndDate(s: Subscription): Date | null {
   const raw = s.end_date || s.expires_at;
   if (!raw) return null;
   const d = new Date(raw);

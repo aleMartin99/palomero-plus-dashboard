@@ -25,6 +25,7 @@ import {
   MenuOutlined,
   GiftOutlined,
   BarChartOutlined,
+  RiseOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import OverviewPage from './components/OverviewPage';
@@ -33,6 +34,7 @@ import ContactsPage from './components/ContactsPage';
 import SubscriptionsPage from './components/SubscriptionsPage';
 import FeaturesPage from './components/FeaturesPage';
 import GiveawaysPage from './components/GiveawaysPage';
+import LeadsPage from './components/LeadsPage';
 import LoginPage from './components/LoginPage';
 import { useAdminData } from './hooks/useAdminData';
 import { useAuth } from './lib/auth';
@@ -51,9 +53,10 @@ const MENU_ICONS: Record<TabKey, ReactNode> = {
   giveaways: <GiftOutlined />,
   contacts: <MailOutlined />,
   subscriptions: <CreditCardOutlined />,
+  leads: <RiseOutlined />,
 };
 
-const TAB_ORDER: TabKey[] = ['overview', 'users', 'features', 'giveaways', 'contacts', 'subscriptions'];
+const TAB_ORDER: TabKey[] = ['overview', 'users', 'features', 'leads', 'giveaways', 'contacts', 'subscriptions'];
 
 export default function App() {
   const { t, i18n } = useTranslation();
@@ -249,7 +252,7 @@ export default function App() {
           {tab === 'users' && allowedTabs.includes('users') && (
             <UsersPage data={data} onChanged={refresh} canBan={permissions.canBanUsers} />
           )}
-          {tab === 'features' && allowedTabs.includes('features') && <FeaturesPage />}
+          {tab === 'features' && allowedTabs.includes('features') && <FeaturesPage data={data} canSplitByPlan={permissions.canSeeUserData} />}
           {tab === 'giveaways' && allowedTabs.includes('giveaways') && (
             <GiveawaysPage data={data} loading={loading} />
           )}
@@ -259,6 +262,7 @@ export default function App() {
           {tab === 'subscriptions' && allowedTabs.includes('subscriptions') && (
             <SubscriptionsPage data={data} />
           )}
+          {tab === 'leads' && allowedTabs.includes('leads') && <LeadsPage data={data} loading={loading} />}
         </Content>
       </Layout>
     </Layout>

@@ -108,6 +108,23 @@ Deno.serve(async (req: Request) => {
         return json({ rows: data ?? [] });
       }
 
+      case 'featureUsageByUser': {
+        if (role !== 'owner') return json({ error: 'Forbidden: Requires owner role.' }, 403);
+        const rows: unknown[] = [];
+        for (let from = 0; ; from += PAGE_SIZE) {
+          const { data, error } = await supabaseAdmin
+            .rpc('feature_usage_by_user')
+            .order('user_id', { ascending: true })
+            .order('feature', { ascending: true })
+            .range(from, from + PAGE_SIZE - 1);
+          if (error) throw error;
+          const batch = data ?? [];
+          rows.push(...batch);
+          if (batch.length < PAGE_SIZE) break;
+        }
+        return json({ rows });
+      }
+
       case 'getAll': {
         let authUsers: Array<{ id: string; email?: string; email_confirmed_at?: string | null; created_at: string }> = [];
         try {
@@ -144,6 +161,9 @@ Deno.serve(async (req: Request) => {
               account_status: profile?.account_status || 'active',
               email_confirmed_at: au.email_confirmed_at ?? null,
               created_at: au.created_at,
+              ...(role === 'owner'
+                ? { contact_type: profile?.contact_type ?? null, contact_value: profile?.contact_value ?? null }
+                : {}),
             };
           });
         } else {
@@ -157,6 +177,9 @@ Deno.serve(async (req: Request) => {
             account_status: p.account_status || 'active',
             email_confirmed_at: p.created_at,
             created_at: p.created_at,
+            ...(role === 'owner'
+              ? { contact_type: p.contact_type ?? null, contact_value: p.contact_value ?? null }
+              : {}),
           }));
         }
 
