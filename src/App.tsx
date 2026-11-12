@@ -34,6 +34,7 @@ import ContactsPage from './components/ContactsPage';
 import SubscriptionsPage from './components/SubscriptionsPage';
 import FeaturesPage from './components/FeaturesPage';
 import GiveawaysPage from './components/GiveawaysPage';
+import LeadsPage from './components/LeadsPage';
 import LoginPage from './components/LoginPage';
 import { useAdminData } from './hooks/useAdminData';
 import { useAuth } from './lib/auth';
@@ -261,6 +262,7 @@ export default function App() {
           {tab === 'subscriptions' && allowedTabs.includes('subscriptions') && (
             <SubscriptionsPage data={data} />
           )}
+          {tab === 'leads' && allowedTabs.includes('leads') && <LeadsPage data={data} loading={loading} />}
         </Content>
       </Layout>
     </Layout>
