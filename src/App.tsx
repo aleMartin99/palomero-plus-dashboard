@@ -25,6 +25,7 @@ import {
   MenuOutlined,
   GiftOutlined,
   BarChartOutlined,
+  RiseOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import OverviewPage from './components/OverviewPage';
@@ -51,9 +52,10 @@ const MENU_ICONS: Record<TabKey, ReactNode> = {
   giveaways: <GiftOutlined />,
   contacts: <MailOutlined />,
   subscriptions: <CreditCardOutlined />,
+  leads: <RiseOutlined />,
 };
 
-const TAB_ORDER: TabKey[] = ['overview', 'users', 'features', 'giveaways', 'contacts', 'subscriptions'];
+const TAB_ORDER: TabKey[] = ['overview', 'users', 'features', 'leads', 'giveaways', 'contacts', 'subscriptions'];
 
 export default function App() {
   const { t, i18n } = useTranslation();

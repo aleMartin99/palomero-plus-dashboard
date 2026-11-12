@@ -1,4 +1,4 @@
-import type { AdminDataBundle, FeatureUsageRow } from '../types';
+import type { AdminDataBundle, FeatureUsageRow, FeatureUsageUserRow } from '../types';
 import type { Role } from './roles';
 import { getAccessToken, isSupabaseConfigured } from './supabaseClient';
 
@@ -88,5 +88,17 @@ export async function fetchFeatureUsage(): Promise<FeatureUsageRow[]> {
     total_users_all: Number(r.total_users_all),
     total_users_7d: Number(r.total_users_7d),
     total_users_30d: Number(r.total_users_30d),
+  }));
+}
+
+export async function fetchFeatureUsageByUser(): Promise<FeatureUsageUserRow[]> {
+  const res = await callFunction<{ rows: FeatureUsageUserRow[] }>('featureUsageByUser');
+  return res.rows.map((r) => ({
+    user_id: r.user_id,
+    feature: r.feature,
+    opens_all: Number(r.opens_all),
+    opens_7d: Number(r.opens_7d),
+    opens_30d: Number(r.opens_30d),
+    last_day: r.last_day ?? null,
   }));
 }

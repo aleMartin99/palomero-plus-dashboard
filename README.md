@@ -16,6 +16,7 @@ based on their email.
 | Features (usage ranking) | ✅ | ✅ |
 | Contact Requests | ✅ | ❌ (tab hidden) |
 | Subscriptions | ✅ | ❌ (tab hidden) |
+| Leads tab, Pro/Free usage split, contact details | ✅ | ❌ |
 
 **Roles are enforced server-side.** `src/lib/roles.ts` decides what the UI *shows*;
 `supabase/functions/admin-dashboard-api/index.ts` is what actually *refuses* the request. A

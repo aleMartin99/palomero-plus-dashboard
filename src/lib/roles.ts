@@ -9,7 +9,7 @@
 
 export type Role = 'owner' | 'viewer';
 
-export type TabKey = 'overview' | 'users' | 'features' | 'giveaways' | 'contacts' | 'subscriptions';
+export type TabKey = 'overview' | 'users' | 'features' | 'giveaways' | 'contacts' | 'subscriptions' | 'leads';
 
 export interface Permissions {
   /** Tabs this role may open. */
@@ -18,18 +18,22 @@ export interface Permissions {
   canBanUsers: boolean;
   /** May move contact requests between statuses. */
   canManageContacts: boolean;
+  /** May see per-user data: Leads tab, Pro/Free usage split, contact details. */
+  canSeeUserData: boolean;
 }
 
 export const PERMISSIONS: Record<Role, Permissions> = {
   owner: {
-    tabs: ['overview', 'users', 'features', 'giveaways', 'contacts', 'subscriptions'],
+    tabs: ['overview', 'users', 'features', 'leads', 'giveaways', 'contacts', 'subscriptions'],
     canBanUsers: true,
     canManageContacts: true,
+    canSeeUserData: true,
   },
   viewer: {
     tabs: ['overview', 'users', 'features', 'giveaways'],
     canBanUsers: false,
     canManageContacts: false,
+    canSeeUserData: false,
   },
 };
 
@@ -39,5 +43,5 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export function permissionsFor(role: Role | null): Permissions {
-  return role ? PERMISSIONS[role] : { tabs: [], canBanUsers: false, canManageContacts: false };
+  return role ? PERMISSIONS[role] : { tabs: [], canBanUsers: false, canManageContacts: false, canSeeUserData: false };
 }
