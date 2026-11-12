@@ -102,6 +102,12 @@ Deno.serve(async (req: Request) => {
         return json({ email: user.email, role });
       }
 
+      case 'featureUsage': {
+        const { data, error } = await supabaseAdmin.rpc('feature_usage_summary');
+        if (error) throw error;
+        return json({ rows: data ?? [] });
+      }
+
       case 'getAll': {
         let authUsers: Array<{ id: string; email?: string; email_confirmed_at?: string | null; created_at: string }> = [];
         try {
