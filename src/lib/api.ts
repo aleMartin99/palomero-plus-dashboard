@@ -1,4 +1,4 @@
-import type { AdminDataBundle } from '../types';
+import type { AdminDataBundle, FeatureUsageRow } from '../types';
 import type { Role } from './roles';
 import { getAccessToken, isSupabaseConfigured } from './supabaseClient';
 
@@ -72,4 +72,21 @@ export function unbanUser(userId: string): Promise<void> {
 
 export function updateContactStatus(contactId: string, status: string): Promise<void> {
   return callFunction<void>('updateContactStatus', { contactId, status });
+}
+
+export async function fetchFeatureUsage(): Promise<FeatureUsageRow[]> {
+  const res = await callFunction<{ rows: FeatureUsageRow[] }>('featureUsage');
+  // bigint columns can arrive as strings; normalise.
+  return res.rows.map((r) => ({
+    feature: r.feature,
+    opens_all: Number(r.opens_all),
+    users_all: Number(r.users_all),
+    opens_7d: Number(r.opens_7d),
+    users_7d: Number(r.users_7d),
+    opens_30d: Number(r.opens_30d),
+    users_30d: Number(r.users_30d),
+    total_users_all: Number(r.total_users_all),
+    total_users_7d: Number(r.total_users_7d),
+    total_users_30d: Number(r.total_users_30d),
+  }));
 }

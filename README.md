@@ -13,6 +13,7 @@ based on their email.
 | Overview | ✅ | ✅ |
 | Users (view) | ✅ | ✅ |
 | Users — ban / reactivate | ✅ | ❌ |
+| Features (usage ranking) | ✅ | ✅ |
 | Contact Requests | ✅ | ❌ (tab hidden) |
 | Subscriptions | ✅ | ❌ (tab hidden) |
 
