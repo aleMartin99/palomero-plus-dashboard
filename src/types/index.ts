@@ -63,3 +63,16 @@ export interface AdminDataBundle {
   plans: SubscriptionPlan[];
   subscriptions: Subscription[];
 }
+
+export interface FeatureUsageRow {
+  feature: string;
+  opens_all: number;
+  users_all: number;
+  opens_7d: number;
+  users_7d: number;
+  opens_30d: number;
+  users_30d: number;
+  total_users_all: number;
+  total_users_7d: number;
+  total_users_30d: number;
+}
