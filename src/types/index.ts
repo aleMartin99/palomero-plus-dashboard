@@ -8,6 +8,8 @@ export interface AdminUser {
   account_status: 'active' | 'inactive' | 'deleted' | string;
   email_confirmed_at: string | null;
   created_at: string;
+  contact_type?: string | null;
+  contact_value?: string | null;
 }
 
 export interface Pigeon {
@@ -16,6 +18,7 @@ export interface Pigeon {
   name: string;
   ring_number: string;
   sex: 'M' | 'F' | string;
+  sale_status?: string;
 }
 
 export interface Capture {
@@ -75,4 +78,14 @@ export interface FeatureUsageRow {
   total_users_all: number;
   total_users_7d: number;
   total_users_30d: number;
+}
+
+/** One row of the feature_usage_by_user() RPC (bigints normalised to numbers). */
+export interface FeatureUsageUserRow {
+  user_id: string;
+  feature: string;
+  opens_all: number;
+  opens_7d: number;
+  opens_30d: number;
+  last_day: string | null; // 'YYYY-MM-DD' (UTC)
 }
