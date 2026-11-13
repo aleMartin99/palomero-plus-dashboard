@@ -56,6 +56,7 @@ export interface Subscription {
   status: string;
   end_date?: string | null;
   expires_at?: string | null;
+  platform?: 'ios' | 'android' | null;
 }
 
 export interface AdminDataBundle {

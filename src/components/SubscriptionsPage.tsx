@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Typography, Row, Col, Card, List, Tag, Table } from 'antd';
+import { Typography, Row, Col, Card, List, Tag, Table, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useTranslation } from 'react-i18next';
 import type { AdminDataBundle, Subscription } from '../types';
@@ -10,6 +10,8 @@ import {
   isProPlan,
   planDisplayName,
 } from '../lib/helpers';
+import { buildPlatformBreakdown, platformOf } from '../lib/platformBreakdown';
+import type { PlatformCounts } from '../lib/platformBreakdown';
 
 const { Title, Text } = Typography;
 
@@ -41,6 +43,28 @@ export default function SubscriptionsPage({ data }: Props) {
     activePlanByUser.forEach((planId) => counts.set(planId, (counts.get(planId) || 0) + 1));
     return counts;
   }, [activePlanByUser]);
+
+  const breakdown = useMemo(() => buildPlatformBreakdown(users, subscriptions), [users, subscriptions]);
+
+  const platformRows: { key: string; label: string; counts: PlatformCounts; strong?: boolean }[] = [
+    { key: 'monthly', label: t('subscriptions.proMonthly'), counts: breakdown.monthly },
+    { key: 'annual', label: t('subscriptions.proAnnual'), counts: breakdown.annual },
+    { key: 'total', label: t('subscriptions.totalPro'), counts: breakdown.total, strong: true },
+  ];
+
+  const platformColumns: ColumnsType<(typeof platformRows)[number]> = [
+    {
+      title: t('subscriptions.colPlan'),
+      dataIndex: 'label',
+      render: (v, r) => (r.strong ? <Text strong>{v}</Text> : v),
+    },
+    ...(['ios', 'android', 'unknown', 'total'] as const).map((k) => ({
+      title: t(`subscriptions.platform_${k}`),
+      align: 'right' as const,
+      render: (_: unknown, r: (typeof platformRows)[number]) =>
+        r.strong ? <Text strong>{r.counts[k]}</Text> : r.counts[k],
+    })),
+  ];
 
   const columns: ColumnsType<Subscription> = [
     { title: t('subscriptions.colUser'), dataIndex: 'user_email', render: (v) => <Text strong>{v}</Text> },
@@ -75,6 +99,24 @@ export default function SubscriptionsPage({ data }: Props) {
       },
     },
     {
+      title: t('subscriptions.colPlatform'),
+      render: (_, s) => {
+        if (!isProPlan(s.plan_id)) return <Text type="secondary">—</Text>;
+        const p = platformOf(s);
+        return p === 'unknown' ? (
+          <Tag>{t('subscriptions.platform_unknown')}</Tag>
+        ) : (
+          <Tag color={p === 'ios' ? 'geekblue' : 'green'}>{t(`subscriptions.platform_${p}`)}</Tag>
+        );
+      },
+      filters: [
+        { text: t('subscriptions.platform_ios'), value: 'ios' },
+        { text: t('subscriptions.platform_android'), value: 'android' },
+        { text: t('subscriptions.platform_unknown'), value: 'unknown' },
+      ],
+      onFilter: (value, s) => isProPlan(s.plan_id) && platformOf(s) === value,
+    },
+    {
       title: t('subscriptions.colUntil'),
       render: (_, s) => formatDate(s.end_date || s.expires_at),
       sorter: (a, b) =>
@@ -88,6 +130,28 @@ export default function SubscriptionsPage({ data }: Props) {
         {t('subscriptions.title')}
       </Title>
       <Text type="secondary">{t('subscriptions.subtitle')}</Text>
+
+      <Card variant="borderless" title={t('subscriptions.platformTitle')} style={{ marginTop: 16, borderRadius: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+        <Table
+          size="small"
+          rowKey="key"
+          columns={platformColumns}
+          dataSource={platformRows}
+          pagination={false}
+          scroll={{ x: 'max-content' }}
+        />
+        <Space orientation="vertical" size={2} style={{ marginTop: 12 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t('subscriptions.platformPending', {
+              pending: breakdown.pendingSync.total,
+              expired: breakdown.expired.total,
+            })}
+          </Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t('subscriptions.platformNote')}
+          </Text>
+        </Space>
+      </Card>
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={8}>
